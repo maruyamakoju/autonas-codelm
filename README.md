@@ -32,6 +32,15 @@ cd nas\scripts
 - Stage 1 (50 steps): Screen 24 architectures → ~1 min/arch
 - Stage 2 (300 steps): Evaluate top 6 → ~3-5 min/arch
 
+### Try the Current Best Model (Playground)
+
+```bash
+cd nas
+python eval_playground.py
+```
+
+**Usage**: Type a code snippet and the model will generate the continuation. Interactive REPL for testing code completion.
+
 ### Quick Status (All Experiments)
 
 ```bash

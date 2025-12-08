@@ -195,6 +195,59 @@ position_encoding: rope
 
 ---
 
+## 5.5 CodeNAS v2 (Two-stage NAS)
+
+**Multi-fidelity NAS: Stage 1でスクリーニング → Stage 2でTop-k精密評価**
+
+### 設定値
+| パラメータ | 値 | 説明 |
+|-----------|-----|------|
+| population | 24 | 世代あたりの個体数 |
+| generations | 8 | 進化世代数 |
+| search_mode | medium | 探索空間 |
+| two_stage | true | 2段階評価有効 |
+| stage1_steps | 50 | スクリーニング（少ステップ） |
+| stage2_steps | 300 | 精密評価（多ステップ） |
+| top_k | 6 | Stage 2に進む候補数 |
+| seq_len | 256 | シーケンス長 |
+| batch_size | 32 | バッチサイズ |
+| device | cuda:0 | 使用GPU |
+
+### コマンドライン実行
+```bash
+python evolution.py \
+  --experiment_name "code_nas_v2_two_stage" \
+  --population 24 \
+  --generations 8 \
+  --use_real_training \
+  --train_path "../data/code_char/train.txt" \
+  --val_path "../data/code_char/val.txt" \
+  --seq_len 256 \
+  --batch_size 32 \
+  --device "cuda:0" \
+  --search_mode "medium" \
+  --two_stage \
+  --stage1_steps 50 \
+  --stage2_steps 300 \
+  --top_k 6
+```
+
+### 期待される効果
+- Stage 1 (50 steps): 24候補を高速スクリーニング → 約1分/アーキ
+- Stage 2 (300 steps): Top 6のみ精密評価 → 約3-5分/アーキ
+- v1比: 評価時間削減 (24×300 → 24×50 + 6×300 = 3000 steps vs 7200 steps = 58%削減)
+
+### 比較ツール
+```bash
+python compare_experiments.py logs/code_nas_v1_single logs/code_nas_v2_two_stage
+```
+
+### 実測結果 (2024-12)
+
+**[実行中...結果は後で追記]**
+
+---
+
 ## 6. Sanity Check (並列 vs 非並列)
 
 > **結果**: PASSED (2024-12) - Sequential: 1.0, Parallel: 1.0

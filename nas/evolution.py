@@ -41,6 +41,12 @@ class EvolutionConfig:
     evaluation_mode: str = "fast"  # "fast", "medium", "full"
     parallel_gpus: List[str] = None  # ["cuda:0", "cuda:1"]
 
+    # Two-stage evaluation (Multi-fidelity NAS)
+    two_stage: bool = False  # Enable two-stage evaluation
+    stage1_steps: int = 50   # Quick screening (fewer steps)
+    stage2_steps: int = 500  # Detailed evaluation (more steps)
+    top_k_for_stage2: int = 5  # Number of top candidates for stage 2
+
     # Logging
     log_dir: str = "logs/evolution"
     save_frequency: int = 5  # Save every 5 generations
@@ -123,9 +129,23 @@ class EvolutionaryNAS:
         Uses parallel evaluation if ParallelEvaluator is available,
         otherwise falls back to sequential evaluation.
 
+        Two-stage mode: First quick screening, then detailed eval on top-k.
+
         Returns:
             List of EvaluationResult (never None - failed evals get fitness=0)
         """
+        # Two-stage evaluation (Multi-fidelity NAS)
+        if self.config.two_stage:
+            return self._evaluate_population_two_stage(population)
+
+        # Standard single-stage evaluation
+        return self._evaluate_population_single_stage(population)
+
+    def _evaluate_population_single_stage(
+        self,
+        population: List[ArchitectureConfig]
+    ) -> List[EvaluationResult]:
+        """Standard single-stage evaluation."""
         # Use parallel evaluation if available
         if self.parallel_evaluator:
             print(f"\n[Gen {self.generation}] Parallel evaluation of {len(population)} architectures...")
@@ -146,7 +166,83 @@ class EvolutionaryNAS:
 
                 raw_results.append(result)
 
-        # Process results: convert None to dummy with fitness=0
+        return self._process_results(population, raw_results)
+
+    def _evaluate_population_two_stage(
+        self,
+        population: List[ArchitectureConfig]
+    ) -> List[EvaluationResult]:
+        """
+        Two-stage evaluation (Multi-fidelity NAS).
+
+        Stage 1: Quick screening with fewer steps
+        Stage 2: Detailed evaluation of top-k candidates
+        """
+        cfg = self.config
+        original_max_steps = self.evaluator.max_train_steps
+
+        # ========== Stage 1: Quick Screening ==========
+        print(f"\n[Gen {self.generation}] STAGE 1: Screening {len(population)} architectures ({cfg.stage1_steps} steps)...")
+        self.evaluator.max_train_steps = cfg.stage1_steps
+
+        stage1_results = self._evaluate_population_single_stage(population)
+
+        # Sort by fitness and select top-k
+        indexed_results = [(i, r) for i, r in enumerate(stage1_results)]
+        indexed_results.sort(key=lambda x: x[1].fitness, reverse=True)
+
+        top_k = min(cfg.top_k_for_stage2, len(population))
+        top_k_indices = [idx for idx, _ in indexed_results[:top_k]]
+        top_k_archs = [population[i] for i in top_k_indices]
+
+        print(f"\n[Gen {self.generation}] Top {top_k} candidates for Stage 2:")
+        for rank, (idx, result) in enumerate(indexed_results[:top_k], 1):
+            arch = population[idx]
+            print(f"  {rank}. [{idx}] {arch.arch_type} L{arch.num_layers} H{arch.hidden_dim} -> fitness={result.fitness:.4f}")
+
+        # ========== Stage 2: Detailed Evaluation ==========
+        print(f"\n[Gen {self.generation}] STAGE 2: Detailed evaluation of top {top_k} ({cfg.stage2_steps} steps)...")
+        self.evaluator.max_train_steps = cfg.stage2_steps
+
+        # Evaluate only top-k
+        stage2_raw_results = []
+        for i, arch in enumerate(top_k_archs, 1):
+            print(f"\n[Gen {self.generation}] Stage 2: {i}/{top_k}...")
+            if self.config.evaluation_mode == "fast":
+                result = self.evaluator.evaluate_fast(arch)
+            elif self.config.evaluation_mode == "medium":
+                result = self.evaluator.evaluate_medium(arch)
+            else:
+                result = self.evaluator.evaluate_full(arch)
+            stage2_raw_results.append(result)
+
+        stage2_results = self._process_results(top_k_archs, stage2_raw_results, track_best=True)
+
+        # Restore original max_steps
+        self.evaluator.max_train_steps = original_max_steps
+
+        # ========== Merge Results ==========
+        # Use Stage 2 results for top-k, Stage 1 for rest
+        final_results = list(stage1_results)  # Copy
+        for i, orig_idx in enumerate(top_k_indices):
+            final_results[orig_idx] = stage2_results[i]
+
+        # Log stage comparison
+        print(f"\n[Gen {self.generation}] Two-stage summary:")
+        for i, orig_idx in enumerate(top_k_indices[:3]):  # Show top 3
+            s1 = stage1_results[orig_idx]
+            s2 = final_results[orig_idx]
+            print(f"  [{orig_idx}] Stage1: {s1.fitness:.4f} -> Stage2: {s2.fitness:.4f}")
+
+        return final_results
+
+    def _process_results(
+        self,
+        population: List[ArchitectureConfig],
+        raw_results: List[Optional[EvaluationResult]],
+        track_best: bool = True
+    ) -> List[EvaluationResult]:
+        """Process raw results: convert None to dummy, track best."""
         results = []
         failed_indices = []
 
@@ -166,7 +262,7 @@ class EvolutionaryNAS:
             else:
                 results.append(raw_result)
                 # Track best
-                if (self.best_architecture is None or
+                if track_best and (self.best_architecture is None or
                     raw_result.fitness > self.best_architecture.fitness):
                     self.best_architecture = raw_result
                     print(f"  *** NEW BEST: Fitness {raw_result.fitness:.3f}")
@@ -512,6 +608,11 @@ if __name__ == "__main__":
     parser.add_argument("--search_mode", type=str, default="minimal", choices=["minimal", "medium", "full"])
     parser.add_argument("--parallel", action="store_true", help="Use multi-GPU parallel evaluation")
     parser.add_argument("--gpus", type=str, default=None, help="Comma-separated GPU list (e.g., 'cuda:0,cuda:1')")
+    # Two-stage evaluation (Multi-fidelity NAS)
+    parser.add_argument("--two_stage", action="store_true", help="Enable two-stage evaluation (quick screening + detailed)")
+    parser.add_argument("--stage1_steps", type=int, default=50, help="Training steps for stage 1 screening")
+    parser.add_argument("--stage2_steps", type=int, default=500, help="Training steps for stage 2 detailed evaluation")
+    parser.add_argument("--top_k", type=int, default=5, help="Number of top candidates for stage 2")
     args = parser.parse_args()
 
     print("="*60)
@@ -523,6 +624,8 @@ if __name__ == "__main__":
     print(f"Real training: {args.use_real_training}")
     print(f"Device: {args.device}")
     print(f"Parallel: {args.parallel}")
+    if args.two_stage:
+        print(f"Two-stage: Stage1={args.stage1_steps} steps, Stage2={args.stage2_steps} steps, top_k={args.top_k}")
 
     # Setup
     device = args.device if torch.cuda.is_available() else "cpu"
@@ -556,7 +659,12 @@ if __name__ == "__main__":
         elite_ratio=0.2,
         mutation_rate=0.3,
         evaluation_mode="fast",
-        log_dir=f"logs/{args.experiment_name}/evolution"
+        log_dir=f"logs/{args.experiment_name}/evolution",
+        # Two-stage evaluation
+        two_stage=args.two_stage,
+        stage1_steps=args.stage1_steps,
+        stage2_steps=args.stage2_steps,
+        top_k_for_stage2=args.top_k
     )
 
     # Setup parallel evaluator if requested

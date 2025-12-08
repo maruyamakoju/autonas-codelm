@@ -79,6 +79,12 @@ python compare_experiments.py
 
 **Current Production Model**: `nas/models/codenas_best_current.json` (v1 single-stage)
 
+**Full Training**: Use `train_best.py` to train the best architecture for production:
+```bash
+cd nas
+python train_best.py --arch_json models/codenas_best_current.json --experiment_name v1_production --max_steps 10000
+```
+
 ### v2 Two-stage NAS (✅ Completed)
 
 **Best Architecture**: 4-layer Transformer

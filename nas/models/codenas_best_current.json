@@ -1,0 +1,44 @@
+{
+  "version": "v1_single_stage",
+  "description": "Current recommended production model. Optimized for size and latency while maintaining fitness=1.0",
+  "source": "logs/code_nas_v1_single/evolution/best_architecture.json",
+  "commit": "1642e97",
+  "date": "2024-12",
+
+  "raw_metrics": {
+    "val_loss": 0.018768329173326492,
+    "val_ppl": 1.018942952156067,
+    "accuracy": 0.9813642501831055,
+    "model_size_mb": 3.0599609375,
+    "latency_ms": 3.012096881866455,
+    "flops": 0,
+    "num_params": 2675456,
+    "train_time_s": 5.027055263519287
+  },
+  "normalized_scores": {
+    "s_loss": 1.0,
+    "s_size": 1.0,
+    "s_latency": 1.0
+  },
+  "fitness": 1.0,
+  "training_time_minutes": 1.6756805181503296,
+  "early_stopped": false,
+  "architecture": {
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 256,
+    "num_heads": 8,
+    "ffn_multiplier": 3.0,
+    "normalization": "rmsnorm",
+    "activation": "gelu",
+    "position_encoding": "rope",
+    "attention_dropout": 0.1,
+    "residual_dropout": 0.1,
+    "vocab_size": 101,
+    "max_seq_length": 256,
+    "quantization": "fp16",
+    "pruning_ratio": 0.0
+  },
+
+  "why_this_model": "Achieves perfect fitness (1.0) with minimal model size (3.06MB) and low latency (3.01ms). Best trade-off for production deployment."
+}

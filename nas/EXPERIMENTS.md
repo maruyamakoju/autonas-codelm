@@ -282,6 +282,19 @@ python compare_experiments.py
 - Two-stage NASは精度重視の探索に有効
 - **実用的には軽量性を重視してv1を推奨**
 
+### アーキテクチャ可視化
+
+```bash
+# Current best model (v1)
+python visualize_architecture.py models/codenas_best_current.json
+
+# v1 original
+python visualize_architecture.py logs/code_nas_v1_single/evolution/best_architecture.json
+
+# v2 two-stage
+python visualize_architecture.py logs/code_nas_v2_two_stage/evolution/best_architecture.json
+```
+
 ---
 
 ## 6. Sanity Check (並列 vs 非並列)

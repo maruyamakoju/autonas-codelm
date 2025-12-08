@@ -68,6 +68,8 @@ python compare_experiments.py
 
 **Commit**: `1642e97` - "CodeNAS v1 complete: best 2.68M param transformer (fitness=1.0)"
 
+**Current Production Model**: `nas/models/codenas_best_current.json` (v1 single-stage)
+
 ### v2 Two-stage NAS (✅ Completed)
 
 **Best Architecture**: 4-layer Transformer

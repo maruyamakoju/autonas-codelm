@@ -1,0 +1,98 @@
+# Claude Coding Autopilot Agent - Configuration File
+# Version: 0.3 (Phase 3準備版)
+
+version: 1
+
+# ループ検知設定
+loop_protection:
+  # 同じ状態が何回連続したら停止するか
+  max_same_state_repetitions: 5
+
+# 画面キャプチャ設定
+capture:
+  # 画面の一部だけをキャプチャするか（falseの場合は全画面）
+  # ★ Claude Code ブラウザのみを対象（誤クリック防止）
+  use_crop: true
+
+  # クロップ領域（use_crop=trueの場合のみ有効）
+  # Claude Code ブラウザウィンドウ（画面右半分）を対象
+  crop_region:
+    x: 960    # 1920の半分 = 右半分の開始位置
+    y: 0      # 画面上端
+    width: 960    # 右半分の幅
+    height: 1080  # フルHDの高さ
+
+  # デバッグ用：スクショを保存するか
+  save_debug_screenshot: true
+  debug_screenshot_path: "screen.png"
+
+# メッセージ設定
+messages:
+  # テスト失敗時に送信するメッセージ
+  on_test_failed: "テストが失敗しています。表示されている主なエラーを修正して、テストを再実行してください。"
+
+  # テスト成功時に送信するメッセージ
+  on_test_success: "いいね！素晴らしい次もばんばん進めて。"
+
+# 状態判定のキーワード設定
+states:
+  # テスト実行中と判定するキーワード
+  tests_running_keywords:
+    - "Running"
+    - "running"
+    - "in progress"
+    - "executing"
+
+  # テスト失敗と判定するキーワード
+  tests_failed_keywords:
+    - "FAILED"
+    - "failed"
+    - "Error"
+    - "error"
+    - "Exception"
+
+  # proceedダイアログと判定するキーワード
+  proceed_dialog_keywords:
+    - "Do you want to proceed?"
+    - "1. Yes"
+
+  # allow editsダイアログと判定するキーワード
+  allow_edits_dialog_keywords:
+    - "Do you want to make this edit"
+    - "allow all edits"
+    - "alt+m"
+
+# ログ設定
+logging:
+  # JSON形式のログを出力するか
+  enable_json_log: true
+  json_log_path: "logs/steps.jsonl"
+
+  # ステップごとの詳細ログ
+  verbose: true
+
+  # ログディレクトリ
+  log_dir: "logs"
+
+# モデル設定
+model:
+  # モデルID（試運転は7Bを推奨、安定したら32Bに変更）
+  model_id: "xlangai/OpenCUA-7B"
+
+  # 生成時の最大トークン数
+  max_new_tokens: 256
+
+  # ステップ間の待機時間（秒）
+  sleep_between_steps: 5.0
+
+# 安全設定
+safety:
+  # PyAutoGUI FAILSAFE（マウスを左上に移動で停止）
+  enable_failsafe: true
+
+  # 最大実行ステップ数
+  max_steps: 300
+
+  # dry-runモード（アクションを実行せずログのみ）
+  # ★まずはdry_run: trueで動作確認してから、false に変更すること
+  dry_run: true

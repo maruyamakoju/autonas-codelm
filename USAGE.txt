@@ -1,0 +1,120 @@
+==========================================
+Claude Coding Autopilot Agent - 使い方
+==========================================
+
+■ バージョン
+Phase 2 版（v0.2）
+
+■ 概要
+Claude Code の GUI を自動操作するエージェント。
+- Do you want to proceed? → "1. Yes" を自動クリック
+- Do you want to make this edit ... → "Yes, allow all edits during this session" を自動クリック
+- テスト失敗時 → エラー修正指示を自動送信
+- テスト成功時 → 「いいね！素晴らしい次もばんばん進めて。」を自動送信
+
+■ Phase 2 の新機能
+✓ 状態マシン: 明示的な状態管理（PROCEED_DIALOG / ALLOW_EDITS_DIALOG / TESTS_RUNNING / etc.）
+✓ エラーループ検知: 同じ状態が5回連続で自動停止
+✓ スクリーンショットハッシュ: 画面の変化を検知
+✓ 状態履歴: 直近10ステップの状態を保持
+✓ 詳細ログ: 各ステップで状態とアクションサマリーを出力
+
+■ 環境要件
+- OS: Windows 10/11
+- GPU: RTX 5090 (4090/5080でも動作可能)
+- Python: 3.10
+- PyTorch: 2.9.1 + CUDA 12.8
+
+■ セットアップ
+
+1. 仮想環境の作成（推奨）
+   python -m venv .venv
+   .venv\Scripts\activate
+
+2. 依存パッケージのインストール
+   pip install -r requirements.txt
+
+3. OpenCUA-32B モデルの自動ダウンロード
+   ※ 初回実行時に自動的にダウンロードされます（約32GB）
+
+■ 実行方法
+
+1. Claude Code をブラウザで開く（フルスクリーン推奨）
+
+2. エージェントを起動
+   python claude_coding_agent.py
+
+3. エージェントが5秒間隔で画面を監視し、自動操作を開始
+
+4. 停止方法
+   - Ctrl+C を押す
+   - マウスを画面左上(0,0)に移動（緊急停止）
+
+■ ファイル構成
+
+claude_coding_agent.py     - メインエージェント（CoF対応、フル機能）
+claude_proceed_agent.py    - シンプル版（proceed専用）
+opencua_click_agent.py     - 対話型クリックエージェント
+test_action_extraction.py  - アクション抽出のユニットテスト
+requirements.txt           - 依存パッケージリスト
+screen.png                 - 最新のスクリーンショット（デバッグ用）
+
+■ 実装済み機能
+
+【Phase 1】
+✓ CoF (Chain of Frames): 直近3フレームの履歴を使った状態判定
+✓ ダイアログ自動応答:
+  - "Do you want to proceed?" → "1. Yes"
+  - "Do you want to make this edit ..." → "Yes, allow all edits during this session (alt+m)"
+✓ テスト状態判定:
+  - RUNNING → 何もしない (NO_ACTION)
+  - FAILED/ERROR → エラー修正指示を送信
+  - WAITING → 「いいね！素晴らしい次もばんばん進めて。」を送信
+✓ 複数アクション対応: click / write / press
+✓ 日本語入力対応（クリップボード経由）
+✓ 安全機能: FAILSAFE、エラーログ、緊急停止
+
+【Phase 2】- 2025-12-06 実装完了
+✓ 状態マシン:
+  - 7つの状態定義（UNKNOWN / PROCEED_DIALOG / ALLOW_EDITS_DIALOG / TESTS_RUNNING / TESTS_FAILED / WAITING_FOR_INPUT / NO_ACTION_NEEDED）
+  - 各ステップで状態をログ出力
+✓ エラーループ検知:
+  - 同じ状態 + 同じスクリーンハッシュ + 同じアクションが5回連続 → 自動停止
+  - 無限ループの防止
+✓ スクリーンショットハッシュ: SHA256で画面の変化を検知
+✓ 状態履歴: 直近10ステップの (state, screen_hash, action_summary) を保持
+✓ 詳細ログ: [STATE] / [ACTION SUMMARY] / [LOOP DETECTED] の出力
+
+■ 今後の拡張予定（Phase 3以降）
+
+- config.yaml によるタスク定義
+- 画面領域の制限（ブラウザ範囲のみ）
+- 他ツールへの対応（VSCode、GitHub Copilot など）
+- デモ用プロジェクトと動画資料
+
+■ トラブルシューティング
+
+Q: モデルのロードが遅い
+A: 初回は約32GBのダウンロードが必要です。2回目以降はキャッシュが使われます。
+
+Q: クリック位置がずれる
+A: smart_resize の座標変換が原因の可能性があります。画面解像度を確認してください。
+
+Q: 日本語が入力されない
+A: pyperclip + Ctrl+V で貼り付けています。クリップボードが正しく動作するか確認してください。
+
+Q: エージェントが暴走する
+A: マウスを画面左上(0,0)に移動すると緊急停止します。
+
+■ ログ確認
+
+実行中のログで以下を確認できます：
+- Captured screen: 画面サイズ
+- History size: 履歴フレーム数
+- RAW MODEL OUTPUT: モデルの生の出力
+- Extracted actions: 実行するアクション一覧
+- Click/Write/Press: 各アクションの詳細
+
+■ 問い合わせ
+
+バグ報告・機能要望は GitHub Issues へ

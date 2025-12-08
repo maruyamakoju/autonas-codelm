@@ -1,0 +1,114 @@
+==========================================
+Phase 2 変更履歴
+==========================================
+
+■ リリース日
+2025-12-06
+
+■ バージョン
+v0.1 → v0.2
+
+■ 主要な変更点
+
+【新機能】
+
+1. 状態マシンの実装
+   - AgentState 列挙型を追加（7つの状態）
+     * UNKNOWN
+     * PROCEED_DIALOG
+     * ALLOW_EDITS_DIALOG
+     * TESTS_RUNNING
+     * TESTS_FAILED
+     * WAITING_FOR_INPUT
+     * NO_ACTION_NEEDED
+   - 各ステップで状態をログ出力
+
+2. エラーループ検知
+   - スクリーンショットハッシュ（SHA256）の計算
+   - 状態履歴（deque, maxlen=10）の保持
+   - 同じ状態が5回連続で自動停止
+   - ループ検知時の詳細ログ出力
+
+3. 状態判定ロジック
+   - determine_state(): モデル出力とアクションから状態を自動判定
+   - get_action_summary(): アクションのサマリー文字列を生成
+   - check_loop_detection(): ループ検知
+
+4. 詳細ログ出力
+   - [STATE] 現在の状態
+   - [ACTION SUMMARY] アクションサマリー
+   - [LOOP DETECTED] ループ検知情報
+   - スクリーンハッシュの表示
+
+【コード変更】
+
+1. インポート追加
+   - hashlib: スクリーンショットハッシュ計算
+   - enum.Enum: 状態定義
+
+2. 関数追加
+   - compute_image_hash(): PIL Image のハッシュ計算
+   - determine_state(): 状態判定
+   - get_action_summary(): アクションサマリー生成
+   - check_loop_detection(): ループ検知
+
+3. 関数変更
+   - run_one_step(): 戻り値を (should_stop, reason) に変更
+     * 状態判定とループ検知を追加
+     * ハッシュ計算と履歴追加を追加
+   - main(): run_one_step の戻り値を処理
+     * 自動停止機能を追加
+     * 終了時のサマリー出力を追加
+
+4. グローバル変数追加
+   - STATE_HISTORY: 状態履歴（deque, maxlen=10）
+   - MAX_SAME_STATE_REPETITIONS: ループ検知の閾値（5回）
+
+【テスト】
+
+1. test_phase2_features.py を新規作成
+   - 状態判定テスト: 7ケース
+   - アクションサマリーテスト: 4ケース
+   - ループ検知テスト: 5ケース
+   - 合計16ケース、全て合格
+
+【ドキュメント】
+
+1. USAGE.txt 更新
+   - Phase 2 の新機能を追加
+   - 実装済み機能をPhase 1 / Phase 2 に分類
+
+2. PROJECT_SUMMARY.txt 更新
+   - Phase 2 実装完了レポートに更新
+   - テスト結果を追加
+   - まとめを更新
+
+3. PHASE2_CHANGELOG.txt 新規作成
+   - このファイル
+
+【ファイルサイズ】
+
+- claude_coding_agent.py: 14KB → 20KB（約40%増加）
+- テストファイル追加: test_phase2_features.py (8.7KB)
+
+【互換性】
+
+- Phase 1 の機能は全て維持
+- 既存のテスト（test_action_extraction.py）も全て合格
+- 後方互換性あり
+
+【パフォーマンス】
+
+- ハッシュ計算のオーバーヘッド: 約10-20ms/ステップ（無視できるレベル）
+- メモリ使用量: STATE_HISTORY（最大10エントリ）により微増
+
+【既知の問題】
+
+- なし（Phase 1 の既知の問題は継続）
+
+【次のステップ】
+
+Phase 3 実装予定:
+- config.yaml によるタスク定義
+- 画面領域の制限（ブラウザ範囲のみ）
+- デモ用プロジェクトと動画資料

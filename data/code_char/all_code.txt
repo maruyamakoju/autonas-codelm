@@ -1,0 +1,1911 @@
+"""
+NAS Evaluator - アーキテクチャの評価システム
+
+評価指標:
+- Accuracy (HumanEval Pass@1)
+- Model Size (MB)
+- Inference Latency (ms)
+- FLOPs
+"""
+
+from typing import Dict, List, Tuple, Optional
+import time
+import torch
+import torch.nn as nn
+from dataclasses import dataclass
+import json
+from pathlib import Path
+
+from search_space import ArchitectureConfig
+
+
+@dataclass
+class EvaluationResult:
+    """評価結果"""
+
+    # Metrics
+    accuracy: float  # 0.0 to 1.0
+    model_size_mb: float
+    latency_ms: float
+    flops: int
+
+    # Metadata
+    architecture: ArchitectureConfig
+    training_time_minutes: float
+    early_stopped: bool = False
+
+    # Fitness score (weighted combination)
+    fitness: float = 0.0
+
+    def compute_fitness(
+        self,
+        accuracy_weight: float = 0.5,
+        size_weight: float = 0.3,
+        latency_weight: float = 0.2
+    ) -> float:
+        """
+        適応度スコアの計算
+
+        目標:
+        - 高精度 (accuracy → 1.0)
+        - 小サイズ (size → 0 MB, but realistic target: 50-100MB)
+        - 低レイテンシ (latency → 0 ms, but realistic: < 10ms)
+        """
+        # Normalize accuracy (0-1, higher is better)
+        accuracy_score = self.accuracy
+
+        # Normalize size (0-1, lower is better)
+        # Target: 50-100MB, penalize above 200MB
+        target_size = 75.0  # MB
+        max_size = 200.0  # MB
+        if self.model_size_mb <= target_size:
+            size_score = 1.0
+        elif self.model_size_mb >= max_size:
+            size_score = 0.0
+        else:
+            size_score = 1.0 - (self.model_size_mb - target_size) / (max_size - target_size)
+
+        # Normalize latency (0-1, lower is better)
+        # Target: < 10ms, penalize above 50ms
+        target_latency = 10.0  # ms
+        max_latency = 50.0  # ms
+        if self.latency_ms <= target_latency:
+            latency_score = 1.0
+        elif self.latency_ms >= max_latency:
+            latency_score = 0.0
+        else:
+            latency_score = 1.0 - (self.latency_ms - target_latency) / (max_latency - target_latency)
+
+        # Weighted sum
+        fitness = (
+            accuracy_weight * accuracy_score +
+            size_weight * size_score +
+            latency_weight * latency_score
+        )
+
+        self.fitness = fitness
+        return fitness
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary"""
+        return {
+            "accuracy": self.accuracy,
+            "model_size_mb": self.model_size_mb,
+            "latency_ms": self.latency_ms,
+            "flops": self.flops,
+            "training_time_minutes": self.training_time_minutes,
+            "early_stopped": self.early_stopped,
+            "fitness": self.fitness,
+            "architecture": self.architecture.to_dict()
+        }
+
+
+class Evaluator:
+    """
+    アーキテクチャ評価器
+
+    評価戦略:
+    1. 小規模評価（1000サンプル、5分）- スクリーニング
+    2. 中規模評価（10000サンプル、20分）- 有望候補の選定
+    3. フル評価（100000サンプル、60分）- 最終評価
+    """
+
+    def __init__(
+        self,
+        dataset_name: str = "code_dataset",
+        device: str = "cuda:0",
+        log_dir: str = "logs/nas"
+    ):
+        self.dataset_name = dataset_name
+        self.device = device
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
+        # TODO: Load actual dataset
+        self.train_data = None
+        self.val_data = None
+        self.test_data = None
+
+    def evaluate_fast(
+        self,
+        config: ArchitectureConfig,
+        num_samples: int = 1000,
+        num_epochs: int = 5
+    ) -> Optional[EvaluationResult]:
+        """
+        高速評価（スクリーニング用）
+
+        Args:
+            config: Architecture configuration
+            num_samples: Number of training samples
+            num_epochs: Number of training epochs
+
+        Returns:
+            EvaluationResult or None (if early stopped)
+        """
+        print(f"\n[FAST EVAL] {config.arch_type}, L{config.num_layers}, H{config.hidden_dim}")
+
+        start_time = time.time()
+
+        # Build model
+        model = self._build_model(config)
+
+        # Estimate size
+        model_size_mb = config.estimate_size_mb()
+
+        # Quick check: if model is too large, skip
+        if model_size_mb > 500:
+            print(f"  → Skipped (too large: {model_size_mb:.1f} MB)")
+            return None
+
+        # Train (simulated for now)
+        accuracy = self._train_simulated(
+            model, config, num_samples, num_epochs
+        )
+
+        # Measure latency
+        latency_ms = self._measure_latency(model, config)
+
+        # Estimate FLOPs
+        flops = self._estimate_flops(config)
+
+        training_time = (time.time() - start_time) / 60.0  # minutes
+
+        result = EvaluationResult(
+            accuracy=accuracy,
+            model_size_mb=model_size_mb,
+            latency_ms=latency_ms,
+            flops=flops,
+            architecture=config,
+            training_time_minutes=training_time,
+            early_stopped=False
+        )
+
+        result.compute_fitness()
+
+        print(f"  → Acc: {accuracy:.3f}, Size: {model_size_mb:.1f}MB, "
+              f"Lat: {latency_ms:.2f}ms, Fitness: {result.fitness:.3f}")
+
+        return result
+
+    def evaluate_medium(
+        self,
+        config: ArchitectureConfig,
+        num_samples: int = 10000,
+        num_epochs: int = 10
+    ) -> EvaluationResult:
+        """中規模評価"""
+        # Similar to fast, but more thorough
+        pass
+
+    def evaluate_full(
+        self,
+        config: ArchitectureConfig,
+        num_samples: int = 100000,
+        num_epochs: int = 20
+    ) -> EvaluationResult:
+        """完全評価"""
+        # Full training and evaluation
+        pass
+
+    def _build_model(self, config: ArchitectureConfig) -> nn.Module:
+        """
+        モデル構築
+
+        Uses models.py implementation
+        """
+        from models import build_model
+
+        try:
+            model = build_model(config)
+            return model.to(self.device)
+        except NotImplementedError:
+            # Fall back to simple model for unsupported architectures
+            print(f"  [WARNING] {config.arch_type} not implemented, using simple model")
+            return self._build_simple_model(config)
+
+    def _build_simple_model(self, config: ArchitectureConfig) -> nn.Module:
+        """Simple fallback model for unsupported architectures"""
+        class SimpleModel(nn.Module):
+            def __init__(self, config):
+                super().__init__()
+                self.config = config
+                self.embedding = nn.Embedding(config.vocab_size, config.hidden_dim)
+                self.layers = nn.ModuleList([
+                    nn.Linear(config.hidden_dim, config.hidden_dim)
+                    for _ in range(config.num_layers)
+                ])
+                self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size)
+
+            def forward(self, x):
+                x = self.embedding(x)
+                for layer in self.layers:
+                    x = layer(x)
+                return self.lm_head(x)
+
+        return SimpleModel(config).to(self.device)
+
+    def _train_simulated(
+        self,
+        model: nn.Module,
+        config: ArchitectureConfig,
+        num_samples: int,
+        num_epochs: int
+    ) -> float:
+        """
+        訓練のシミュレーション（実装は後で）
+
+        今はランダムな精度を返す（テスト用）
+
+        TODO: 実際の訓練実装
+        """
+        import random
+
+        # Simulate training time
+        time.sleep(0.1)
+
+        # Random accuracy (for testing)
+        # 実際は訓練して本物の精度を測定
+        base_accuracy = 0.3
+        layer_bonus = config.num_layers * 0.02
+        dim_bonus = (config.hidden_dim / 1024) * 0.1
+
+        accuracy = base_accuracy + layer_bonus + dim_bonus
+        accuracy += random.uniform(-0.05, 0.05)  # noise
+        accuracy = max(0.0, min(1.0, accuracy))
+
+        return accuracy
+
+    def _measure_latency(
+        self,
+        model: nn.Module,
+        config: ArchitectureConfig,
+        num_runs: int = 100
+    ) -> float:
+        """
+        推論レイテンシの測定
+
+        Args:
+            model: Model to measure
+            config: Architecture config
+            num_runs: Number of runs for averaging
+
+        Returns:
+            Average latency in milliseconds
+        """
+        model.eval()
+
+        # Dummy input
+        batch_size = 1
+        seq_length = 128
+        dummy_input = torch.randint(
+            0, config.vocab_size, (batch_size, seq_length)
+        ).to(self.device)
+
+        # Warmup
+        with torch.no_grad():
+            for _ in range(10):
+                _ = model(dummy_input)
+
+        # Measure
+        torch.cuda.synchronize() if torch.cuda.is_available() else None
+        start_time = time.time()
+
+        with torch.no_grad():
+            for _ in range(num_runs):
+                _ = model(dummy_input)
+
+        torch.cuda.synchronize() if torch.cuda.is_available() else None
+        end_time = time.time()
+
+        avg_latency_ms = (end_time - start_time) / num_runs * 1000
+
+        return avg_latency_ms
+
+    def _estimate_flops(self, config: ArchitectureConfig) -> int:
+        """
+        FLOPs の推定
+
+        Transformer の場合（1トークンあたり）:
+        - Attention: 2 * seq_len * hidden_dim^2
+        - FFN: 2 * 2 * hidden_dim * ffn_dim
+
+        Returns:
+            Estimated FLOPs for one forward pass
+        """
+        seq_len = 128  # assume
+
+        flops = 0
+
+        for _ in range(config.num_layers):
+            # Attention
+            flops += 2 * seq_len * config.hidden_dim ** 2
+
+            # FFN
+            ffn_dim = int(config.hidden_dim * config.ffn_multiplier)
+            flops += 2 * 2 * config.hidden_dim * ffn_dim
+
+        return flops
+
+    def save_result(self, result: EvaluationResult, filename: str = None):
+        """評価結果の保存"""
+        if filename is None:
+            timestamp = int(time.time())
+            filename = f"eval_{timestamp}.json"
+
+        filepath = self.log_dir / filename
+
+        with open(filepath, "w") as f:
+            json.dump(result.to_dict(), f, indent=2)
+
+        print(f"Saved evaluation result to {filepath}")
+
+
+def compare_architectures(results: List[EvaluationResult]):
+    """
+    アーキテクチャの比較（Pandas DataFrame）
+
+    Args:
+        results: List of evaluation results
+
+    Returns:
+        DataFrame with comparison (or None if pandas not installed)
+    """
+    try:
+        import pandas as pd
+
+        data = []
+        for r in results:
+            data.append({
+                "arch_type": r.architecture.arch_type,
+                "layers": r.architecture.num_layers,
+                "hidden": r.architecture.hidden_dim,
+                "accuracy": r.accuracy,
+                "size_mb": r.model_size_mb,
+                "latency_ms": r.latency_ms,
+                "fitness": r.fitness
+            })
+
+        df = pd.DataFrame(data)
+        df = df.sort_values("fitness", ascending=False)
+        return df
+
+    except ImportError:
+        print("Pandas not installed. Install with: pip install pandas")
+        return None
+
+
+if __name__ == "__main__":
+    from search_space import get_baseline_architectures, SearchSpace
+
+    print("=" * 60)
+    print("NAS Evaluator Test")
+    print("=" * 60)
+
+    evaluator = Evaluator(device="cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # Test with baselines
+    baselines = get_baseline_architectures()
+
+    results = []
+    for i, config in enumerate(baselines, 1):
+        print(f"\n[{i}/{len(baselines)}] Evaluating baseline...")
+        result = evaluator.evaluate_fast(config)
+
+        if result:
+            results.append(result)
+            evaluator.save_result(result, f"baseline_{i}.json")
+
+    # Test with random architectures
+    space = SearchSpace(mode="minimal")
+
+    print("\n" + "=" * 60)
+    print("Random Architecture Evaluation")
+    print("=" * 60)
+
+    for i in range(5):
+        config = space.sample_random()
+        print(f"\n[{i+1}/5] Evaluating random architecture...")
+        result = evaluator.evaluate_fast(config)
+
+        if result:
+            results.append(result)
+
+    # Summary
+    print("\n" + "=" * 60)
+    print("Evaluation Summary")
+    print("=" * 60)
+
+    results.sort(key=lambda r: r.fitness, reverse=True)
+
+    for i, r in enumerate(results[:5], 1):
+        print(f"\nRank {i}:")
+        print(f"  Type: {r.architecture.arch_type}")
+        print(f"  Size: L{r.architecture.num_layers} H{r.architecture.hidden_dim}")
+        print(f"  Accuracy: {r.accuracy:.3f}")
+        print(f"  Size: {r.model_size_mb:.1f} MB")
+        print(f"  Latency: {r.latency_ms:.2f} ms")
+        print(f"  Fitness: {r.fitness:.3f}")
+"""
+Evolutionary Neural Architecture Search
+
+遺伝的アルゴリズムによるアーキテクチャ探索:
+- Population-based search
+- Multi-objective optimization (accuracy, size, latency)
+- Elite selection + crossover + mutation
+- Parallel evaluation on multiple GPUs
+"""
+
+from typing import List, Tuple, Optional, Dict
+import random
+import time
+import json
+from pathlib import Path
+from dataclasses import dataclass, asdict
+import numpy as np
+
+from search_space import ArchitectureConfig, SearchSpace
+from evaluator import Evaluator, EvaluationResult
+
+
+@dataclass
+class EvolutionConfig:
+    """進化的探索の設定"""
+
+    # Population
+    population_size: int = 50
+    num_generations: int = 100
+
+    # Selection
+    elite_ratio: float = 0.2  # Top 20% survive
+    tournament_size: int = 3
+
+    # Genetic operators
+    mutation_rate: float = 0.3  # 30% of genes mutate
+    crossover_rate: float = 0.7  # 70% chance of crossover
+
+    # Evaluation
+    evaluation_mode: str = "fast"  # "fast", "medium", "full"
+    parallel_gpus: List[str] = None  # ["cuda:0", "cuda:1"]
+
+    # Logging
+    log_dir: str = "logs/evolution"
+    save_frequency: int = 5  # Save every 5 generations
+
+    def __post_init__(self):
+        if self.parallel_gpus is None:
+            self.parallel_gpus = ["cuda:0"]
+
+
+class EvolutionaryNAS:
+    """
+    遺伝的アルゴリズムによるNAS
+
+    アルゴリズム:
+    1. 初期集団をランダムサンプリング
+    2. 各個体を評価（accuracy, size, latency）
+    3. エリート選択（上位20%）
+    4. トーナメント選択で親を選ぶ
+    5. 交叉と突然変異で子世代を生成
+    6. 次世代へ
+    """
+
+    def __init__(
+        self,
+        search_space: SearchSpace,
+        evaluator: Evaluator,
+        config: EvolutionConfig = None
+    ):
+        self.search_space = search_space
+        self.evaluator = evaluator
+        self.config = config or EvolutionConfig()
+
+        # Logging
+        self.log_dir = Path(self.config.log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Evolution state
+        self.generation = 0
+        self.population: List[ArchitectureConfig] = []
+        self.fitness_history: List[Dict] = []
+        self.best_architecture: Optional[EvaluationResult] = None
+
+    def initialize_population(self) -> List[ArchitectureConfig]:
+        """
+        初期集団の生成
+
+        戦略:
+        - 50% ランダムサンプリング
+        - 50% スマートサンプリング（既知の良い設定の近傍）
+        """
+        population = []
+
+        # Random sampling
+        num_random = self.config.population_size // 2
+        for _ in range(num_random):
+            arch = self.search_space.sample_random()
+            population.append(arch)
+
+        # Smart sampling (near good baselines)
+        num_smart = self.config.population_size - num_random
+        for _ in range(num_smart):
+            arch = self.search_space.sample_smart()
+            population.append(arch)
+
+        print(f"Initialized population: {len(population)} architectures")
+        return population
+
+    def evaluate_population(
+        self,
+        population: List[ArchitectureConfig]
+    ) -> List[Optional[EvaluationResult]]:
+        """
+        集団の評価
+
+        TODO: 並列評価の実装（複数GPU）
+        """
+        results = []
+
+        for i, arch in enumerate(population, 1):
+            print(f"\n[Gen {self.generation}] Evaluating {i}/{len(population)}...")
+
+            # Evaluate based on mode
+            if self.config.evaluation_mode == "fast":
+                result = self.evaluator.evaluate_fast(arch)
+            elif self.config.evaluation_mode == "medium":
+                result = self.evaluator.evaluate_medium(arch)
+            else:
+                result = self.evaluator.evaluate_full(arch)
+
+            results.append(result)
+
+            # Track best
+            if result and (self.best_architecture is None or
+                          result.fitness > self.best_architecture.fitness):
+                self.best_architecture = result
+                print(f"  *** NEW BEST: Fitness {result.fitness:.3f}")
+
+        return results
+
+    def select_elite(
+        self,
+        population: List[ArchitectureConfig],
+        results: List[Optional[EvaluationResult]]
+    ) -> Tuple[List[ArchitectureConfig], List[EvaluationResult]]:
+        """
+        エリート選択（上位N%を保存）
+
+        Returns:
+            (elite_architectures, elite_results)
+        """
+        # Filter out None results (early stopped)
+        valid_pairs = [
+            (arch, result)
+            for arch, result in zip(population, results)
+            if result is not None
+        ]
+
+        if not valid_pairs:
+            print("⚠️  No valid architectures in population!")
+            return [], []
+
+        # Sort by fitness (descending)
+        valid_pairs.sort(key=lambda x: x[1].fitness, reverse=True)
+
+        # Select top N%
+        num_elite = max(1, int(len(valid_pairs) * self.config.elite_ratio))
+        elite_pairs = valid_pairs[:num_elite]
+
+        elite_archs = [arch for arch, _ in elite_pairs]
+        elite_results = [result for _, result in elite_pairs]
+
+        print(f"\n[ELITE] Selected {len(elite_archs)} architectures")
+        print(f"   Best fitness: {elite_results[0].fitness:.3f}")
+        print(f"   Worst elite fitness: {elite_results[-1].fitness:.3f}")
+
+        return elite_archs, elite_results
+
+    def tournament_selection(
+        self,
+        population: List[ArchitectureConfig],
+        results: List[EvaluationResult],
+        k: int = None
+    ) -> ArchitectureConfig:
+        """
+        トーナメント選択
+
+        Args:
+            population: 候補アーキテクチャ
+            results: 評価結果
+            k: トーナメントサイズ
+
+        Returns:
+            選ばれたアーキテクチャ
+        """
+        if k is None:
+            k = self.config.tournament_size
+
+        # Ensure k doesn't exceed population size
+        k = min(k, len(population))
+
+        # Randomly select k individuals
+        indices = random.sample(range(len(population)), k)
+        tournament = [(population[i], results[i]) for i in indices]
+
+        # Select best from tournament
+        winner = max(tournament, key=lambda x: x[1].fitness)
+        return winner[0]
+
+    def crossover(
+        self,
+        parent1: ArchitectureConfig,
+        parent2: ArchitectureConfig
+    ) -> ArchitectureConfig:
+        """
+        交叉（2点交叉）
+
+        Args:
+            parent1, parent2: 親アーキテクチャ
+
+        Returns:
+            子アーキテクチャ
+        """
+        # Convert to dicts
+        p1_dict = parent1.to_dict()
+        p2_dict = parent2.to_dict()
+
+        # Create child by randomly selecting from each parent
+        child_dict = {}
+        for key in p1_dict.keys():
+            if random.random() < 0.5:
+                child_dict[key] = p1_dict[key]
+            else:
+                child_dict[key] = p2_dict[key]
+
+        child = ArchitectureConfig.from_dict(child_dict)
+
+        # Validity check and fix
+        is_valid, error = child.is_valid()
+        if not is_valid:
+            # Fix common issues
+            if "hidden_dim" in error and "num_heads" in error:
+                # Make hidden_dim divisible by num_heads
+                while child.hidden_dim % child.num_heads != 0:
+                    child.num_heads = random.choice(self.search_space.space["num_heads"])
+
+        return child
+
+    def mutate(self, architecture: ArchitectureConfig) -> ArchitectureConfig:
+        """
+        突然変異
+
+        Args:
+            architecture: アーキテクチャ
+
+        Returns:
+            変異後のアーキテクチャ
+        """
+        arch_dict = architecture.to_dict()
+
+        # Mutate each gene with mutation_rate probability
+        for key in arch_dict.keys():
+            if random.random() < self.config.mutation_rate:
+                # Replace with random value from search space
+                if key in self.search_space.space:
+                    arch_dict[key] = random.choice(self.search_space.space[key])
+
+        mutated = ArchitectureConfig.from_dict(arch_dict)
+
+        # Validity check and fix
+        is_valid, error = mutated.is_valid()
+        if not is_valid:
+            if "hidden_dim" in error and "num_heads" in error:
+                while mutated.hidden_dim % mutated.num_heads != 0:
+                    mutated.num_heads = random.choice(self.search_space.space["num_heads"])
+
+        return mutated
+
+    def create_offspring(
+        self,
+        parents: List[ArchitectureConfig],
+        parent_results: List[EvaluationResult],
+        num_offspring: int
+    ) -> List[ArchitectureConfig]:
+        """
+        子世代の生成
+
+        Args:
+            parents: 親世代
+            parent_results: 親の評価結果
+            num_offspring: 生成する子の数
+
+        Returns:
+            子世代
+        """
+        offspring = []
+
+        for _ in range(num_offspring):
+            # Crossover
+            if random.random() < self.config.crossover_rate and len(parents) >= 2:
+                # Tournament selection for parents
+                parent1 = self.tournament_selection(parents, parent_results)
+                parent2 = self.tournament_selection(parents, parent_results)
+                child = self.crossover(parent1, parent2)
+            else:
+                # Just copy a parent
+                parent = self.tournament_selection(parents, parent_results)
+                child = ArchitectureConfig.from_dict(parent.to_dict())
+
+            # Mutation
+            child = self.mutate(child)
+
+            offspring.append(child)
+
+        return offspring
+
+    def evolve_generation(self) -> Dict:
+        """
+        1世代の進化
+
+        Returns:
+            世代の統計情報
+        """
+        print(f"\n{'='*60}")
+        print(f"Generation {self.generation}")
+        print(f"{'='*60}")
+
+        start_time = time.time()
+
+        # Evaluate population
+        results = self.evaluate_population(self.population)
+
+        # Select elite
+        elite_archs, elite_results = self.select_elite(self.population, results)
+
+        if not elite_archs:
+            print("WARNING: No elite architectures! Re-initializing population...")
+            self.population = self.initialize_population()
+            return {}
+
+        # Create offspring
+        num_offspring = self.config.population_size - len(elite_archs)
+        offspring = self.create_offspring(elite_archs, elite_results, num_offspring)
+
+        # Next generation = elite + offspring
+        self.population = elite_archs + offspring
+
+        # Statistics
+        valid_results = [r for r in results if r is not None]
+        stats = {
+            "generation": self.generation,
+            "num_evaluated": len(results),
+            "num_valid": len(valid_results),
+            "num_elite": len(elite_archs),
+            "best_fitness": max(r.fitness for r in valid_results) if valid_results else 0.0,
+            "mean_fitness": np.mean([r.fitness for r in valid_results]) if valid_results else 0.0,
+            "std_fitness": np.std([r.fitness for r in valid_results]) if valid_results else 0.0,
+            "time_minutes": (time.time() - start_time) / 60.0
+        }
+
+        self.fitness_history.append(stats)
+
+        # Log
+        print(f"\n[SUMMARY] Generation {self.generation}:")
+        print(f"   Valid: {stats['num_valid']}/{stats['num_evaluated']}")
+        print(f"   Best fitness: {stats['best_fitness']:.3f}")
+        print(f"   Mean fitness: {stats['mean_fitness']:.3f} +/- {stats['std_fitness']:.3f}")
+        print(f"   Time: {stats['time_minutes']:.1f} min")
+
+        # Save
+        if self.generation % self.config.save_frequency == 0:
+            self.save_checkpoint()
+
+        self.generation += 1
+
+        return stats
+
+    def run(self, num_generations: int = None) -> EvaluationResult:
+        """
+        進化的探索の実行
+
+        Args:
+            num_generations: 世代数（Noneならconfig使用）
+
+        Returns:
+            最良アーキテクチャの評価結果
+        """
+        if num_generations is None:
+            num_generations = self.config.num_generations
+
+        print(f"\n{'='*60}")
+        print(f"Starting Evolutionary NAS")
+        print(f"{'='*60}")
+        print(f"Population size: {self.config.population_size}")
+        print(f"Generations: {num_generations}")
+        print(f"Evaluation mode: {self.config.evaluation_mode}")
+        print(f"Search space size: {self.search_space.get_search_space_size():,}")
+
+        # Initialize
+        self.population = self.initialize_population()
+
+        # Evolve
+        for gen in range(num_generations):
+            stats = self.evolve_generation()
+
+            if not stats:
+                print("WARNING: Evolution failed, stopping...")
+                break
+
+        # Final results
+        print(f"\n{'='*60}")
+        print(f"Evolution Complete!")
+        print(f"{'='*60}")
+
+        if self.best_architecture:
+            print(f"\n[BEST ARCHITECTURE]")
+            print(f"   Type: {self.best_architecture.architecture.arch_type}")
+            print(f"   Layers: {self.best_architecture.architecture.num_layers}")
+            print(f"   Hidden: {self.best_architecture.architecture.hidden_dim}")
+            print(f"   Heads: {self.best_architecture.architecture.num_heads}")
+            print(f"   Accuracy: {self.best_architecture.accuracy:.3f}")
+            print(f"   Size: {self.best_architecture.model_size_mb:.1f} MB")
+            print(f"   Latency: {self.best_architecture.latency_ms:.2f} ms")
+            print(f"   Fitness: {self.best_architecture.fitness:.3f}")
+
+            # Save best
+            self.save_best_architecture()
+
+        return self.best_architecture
+
+    def save_checkpoint(self):
+        """チェックポイントの保存"""
+        checkpoint = {
+            "generation": self.generation,
+            "config": asdict(self.config),
+            "fitness_history": self.fitness_history,
+            "best_architecture": self.best_architecture.to_dict() if self.best_architecture else None
+        }
+
+        filepath = self.log_dir / f"checkpoint_gen{self.generation}.json"
+        with open(filepath, "w") as f:
+            json.dump(checkpoint, f, indent=2)
+
+        print(f"   [SAVE] Checkpoint: {filepath}")
+
+    def save_best_architecture(self):
+        """最良アーキテクチャの保存"""
+        if not self.best_architecture:
+            return
+
+        filepath = self.log_dir / "best_architecture.json"
+        with open(filepath, "w") as f:
+            json.dump(self.best_architecture.to_dict(), f, indent=2)
+
+        print(f"\n[SAVE] Best architecture: {filepath}")
+
+
+if __name__ == "__main__":
+    import torch
+
+    print("="*60)
+    print("Evolutionary NAS Test")
+    print("="*60)
+
+    # Setup
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    print(f"Device: {device}")
+
+    # Minimal test (small population, few generations)
+    search_space = SearchSpace(mode="minimal")
+    evaluator = Evaluator(device=device, log_dir="logs/nas_test")
+
+    config = EvolutionConfig(
+        population_size=10,  # Small for testing
+        num_generations=5,   # Just 5 generations
+        elite_ratio=0.2,
+        mutation_rate=0.3,
+        evaluation_mode="fast",
+        log_dir="logs/evolution_test"
+    )
+
+    # Run evolution
+    nas = EvolutionaryNAS(
+        search_space=search_space,
+        evaluator=evaluator,
+        config=config
+    )
+
+    best = nas.run()
+
+    # Plot fitness history (if matplotlib available)
+    try:
+        import matplotlib.pyplot as plt
+
+        generations = [h["generation"] for h in nas.fitness_history]
+        best_fitness = [h["best_fitness"] for h in nas.fitness_history]
+        mean_fitness = [h["mean_fitness"] for h in nas.fitness_history]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(generations, best_fitness, 'b-', label='Best', linewidth=2)
+        plt.plot(generations, mean_fitness, 'r--', label='Mean', linewidth=2)
+        plt.xlabel('Generation')
+        plt.ylabel('Fitness')
+        plt.title('Evolution Progress')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        plot_path = config.log_dir + "/fitness_history.png"
+        plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+        print(f"\n[PLOT] Saved fitness history: {plot_path}")
+
+    except ImportError:
+        print("\nMatplotlib not installed, skipping plot")
+"""
+Neural Architecture Implementations
+
+各アーキテクチャの実際の実装:
+- Transformer (standard attention)
+- Linear Transformer (linear attention)
+- FlashAttention (memory efficient)
+- Grouped Query Attention (GQA)
+- Mamba (state space model)
+- RWKV (RNN-like transformer)
+"""
+
+import math
+from typing import Optional, Tuple
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from search_space import ArchitectureConfig
+
+
+# ===== Normalization Layers =====
+
+def get_normalization(norm_type: str, dim: int) -> nn.Module:
+    """Get normalization layer"""
+    if norm_type == "layernorm":
+        return nn.LayerNorm(dim)
+    elif norm_type == "rmsnorm":
+        return RMSNorm(dim)
+    elif norm_type == "groupnorm":
+        # Default: 8 groups
+        num_groups = min(8, dim)
+        return nn.GroupNorm(num_groups, dim)
+    else:
+        raise ValueError(f"Unknown normalization: {norm_type}")
+
+
+class RMSNorm(nn.Module):
+    """
+    Root Mean Square Layer Normalization
+
+    Used in: LLaMA, Gopher, Chinchilla
+    Paper: "Root Mean Square Layer Normalization" (2019)
+
+    Faster than LayerNorm (no mean subtraction)
+    """
+
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # RMS = sqrt(mean(x^2))
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        x_norm = x / rms
+        return self.weight * x_norm
+
+
+# ===== Activation Functions =====
+
+def get_activation(act_type: str) -> nn.Module:
+    """Get activation function"""
+    if act_type == "gelu":
+        return nn.GELU()
+    elif act_type == "silu":
+        return nn.SiLU()
+    elif act_type == "geglu":
+        return GeGLU()
+    elif act_type == "swiglu":
+        return SwiGLU()
+    else:
+        raise ValueError(f"Unknown activation: {act_type}")
+
+
+class GeGLU(nn.Module):
+    """
+    GELU Gated Linear Unit
+
+    Paper: "GLU Variants Improve Transformer" (2020)
+    Used in: GPT-3, PaLM
+
+    Formula: GELU(x @ W) * (x @ V)
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return x * F.gelu(gate)
+
+
+class SwiGLU(nn.Module):
+    """
+    Swish/SiLU Gated Linear Unit
+
+    Paper: "GLU Variants Improve Transformer" (2020)
+    Used in: LLaMA, PaLM 2
+
+    Formula: SiLU(x @ W) * (x @ V)
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return x * F.silu(gate)
+
+
+# ===== Position Encoding =====
+
+class PositionalEncoding(nn.Module):
+    """
+    Absolute sinusoidal positional encoding
+
+    Paper: "Attention is All You Need" (2017)
+    Used in: Original Transformer, BERT, GPT
+    """
+
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super().__init__()
+
+        # Create positional encoding matrix
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        # Register as buffer (not a parameter)
+        self.register_buffer('pe', pe.unsqueeze(0))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: (batch_size, seq_len, d_model)
+        Returns:
+            x + positional encoding
+        """
+        return x + self.pe[:, :x.size(1), :]
+
+
+class RotaryPositionalEmbedding(nn.Module):
+    """
+    Rotary Position Embedding (RoPE)
+
+    Paper: "RoFormer: Enhanced Transformer with Rotary Position Embedding" (2021)
+    Used in: LLaMA, GPT-NeoX, PaLM
+
+    Advantages:
+    - Relative position encoding
+    - Better long-range modeling
+    - No trainable parameters
+    """
+
+    def __init__(self, dim: int, max_len: int = 2048):
+        super().__init__()
+
+        # Precompute rotation matrix
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer('inv_freq', inv_freq)
+
+        # Cache for efficiency
+        self._seq_len_cached = 0
+        self._cos_cached = None
+        self._sin_cached = None
+
+    def forward(self, x: torch.Tensor, seq_len: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns:
+            cos, sin for rotary embedding
+        """
+        if seq_len != self._seq_len_cached:
+            self._seq_len_cached = seq_len
+
+            t = torch.arange(seq_len, device=x.device).type_as(self.inv_freq)
+            freqs = torch.einsum('i,j->ij', t, self.inv_freq)
+            emb = torch.cat((freqs, freqs), dim=-1)
+
+            self._cos_cached = emb.cos()
+            self._sin_cached = emb.sin()
+
+        return self._cos_cached, self._sin_cached
+
+
+def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Apply rotary position embedding"""
+    # Rotate q and k
+    def rotate_half(x):
+        x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
+        return torch.cat((-x2, x1), dim=-1)
+
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+
+    return q_embed, k_embed
+
+
+# ===== Attention Mechanisms =====
+
+class MultiHeadAttention(nn.Module):
+    """
+    Standard Multi-Head Attention
+
+    Paper: "Attention is All You Need" (2017)
+    Complexity: O(n^2 * d)
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        dropout: float = 0.1,
+        use_rope: bool = False
+    ):
+        super().__init__()
+
+        assert hidden_dim % num_heads == 0, f"hidden_dim ({hidden_dim}) must be divisible by num_heads ({num_heads})"
+
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        # Q, K, V projections
+        self.qkv = nn.Linear(hidden_dim, 3 * hidden_dim, bias=False)
+        self.out_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
+
+        self.dropout = nn.Dropout(dropout)
+
+        # RoPE
+        self.use_rope = use_rope
+        if use_rope:
+            self.rotary_emb = RotaryPositionalEmbedding(self.head_dim)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """
+        Args:
+            x: (batch_size, seq_len, hidden_dim)
+            mask: (batch_size, seq_len, seq_len) or None
+
+        Returns:
+            (batch_size, seq_len, hidden_dim)
+        """
+        batch_size, seq_len, _ = x.shape
+
+        # QKV projection
+        qkv = self.qkv(x)  # (B, L, 3*H)
+        qkv = qkv.reshape(batch_size, seq_len, 3, self.num_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, nh, L, hd)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # Each: (B, nh, L, hd)
+
+        # Apply RoPE if enabled
+        if self.use_rope:
+            cos, sin = self.rotary_emb(x, seq_len)
+            q, k = apply_rotary_pos_emb(q, k, cos, sin)
+
+        # Scaled dot-product attention
+        attn = (q @ k.transpose(-2, -1)) * self.scale  # (B, nh, L, L)
+
+        # Apply mask
+        if mask is not None:
+            attn = attn.masked_fill(mask == 0, float('-inf'))
+
+        attn = F.softmax(attn, dim=-1)
+        attn = self.dropout(attn)
+
+        # Combine heads
+        out = attn @ v  # (B, nh, L, hd)
+        out = out.transpose(1, 2).contiguous()  # (B, L, nh, hd)
+        out = out.reshape(batch_size, seq_len, self.hidden_dim)  # (B, L, H)
+
+        out = self.out_proj(out)
+
+        return out
+
+
+# ===== Feed-Forward Networks =====
+
+class FeedForward(nn.Module):
+    """
+    Position-wise Feed-Forward Network
+
+    Paper: "Attention is All You Need" (2017)
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        ffn_dim: int,
+        activation: str = "gelu",
+        dropout: float = 0.1
+    ):
+        super().__init__()
+
+        # GLU variants use 2/3 expansion (since gating halves dimension)
+        if activation in ["geglu", "swiglu"]:
+            # Project to 2 * ffn_dim (will be halved by gating)
+            self.fc1 = nn.Linear(hidden_dim, 2 * ffn_dim, bias=False)
+            self.fc2 = nn.Linear(ffn_dim, hidden_dim, bias=False)
+        else:
+            self.fc1 = nn.Linear(hidden_dim, ffn_dim, bias=False)
+            self.fc2 = nn.Linear(ffn_dim, hidden_dim, bias=False)
+
+        self.activation = get_activation(activation)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+
+# ===== Transformer Block =====
+
+class TransformerBlock(nn.Module):
+    """
+    Standard Transformer Block
+
+    Architecture:
+    - Layer Norm 1
+    - Multi-Head Attention
+    - Residual connection
+    - Layer Norm 2
+    - Feed-Forward
+    - Residual connection
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        ffn_dim: int,
+        normalization: str = "layernorm",
+        activation: str = "gelu",
+        attention_dropout: float = 0.1,
+        residual_dropout: float = 0.1,
+        use_rope: bool = False
+    ):
+        super().__init__()
+
+        # Pre-norm architecture (LLaMA, GPT-3 style)
+        self.norm1 = get_normalization(normalization, hidden_dim)
+        self.attn = MultiHeadAttention(
+            hidden_dim, num_heads, attention_dropout, use_rope
+        )
+
+        self.norm2 = get_normalization(normalization, hidden_dim)
+        self.ffn = FeedForward(
+            hidden_dim, ffn_dim, activation, residual_dropout
+        )
+
+        self.dropout = nn.Dropout(residual_dropout)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        # Attention block with residual
+        residual = x
+        x = self.norm1(x)
+        x = self.attn(x, mask)
+        x = self.dropout(x)
+        x = residual + x
+
+        # FFN block with residual
+        residual = x
+        x = self.norm2(x)
+        x = self.ffn(x)
+        x = self.dropout(x)
+        x = residual + x
+
+        return x
+
+
+# ===== Complete Models =====
+
+class TransformerLM(nn.Module):
+    """
+    Transformer Language Model
+
+    Based on: GPT-2, GPT-3, LLaMA architecture
+    """
+
+    def __init__(self, config: ArchitectureConfig):
+        super().__init__()
+
+        self.config = config
+
+        # Embeddings
+        self.token_embedding = nn.Embedding(config.vocab_size, config.hidden_dim)
+
+        # Positional encoding
+        self.use_rope = (config.position_encoding == "rope")
+        if config.position_encoding == "absolute":
+            self.pos_encoding = PositionalEncoding(
+                config.hidden_dim, config.max_seq_length
+            )
+        # RoPE is applied inside attention
+
+        # Transformer blocks
+        ffn_dim = int(config.hidden_dim * config.ffn_multiplier)
+
+        self.layers = nn.ModuleList([
+            TransformerBlock(
+                hidden_dim=config.hidden_dim,
+                num_heads=config.num_heads,
+                ffn_dim=ffn_dim,
+                normalization=config.normalization,
+                activation=config.activation,
+                attention_dropout=config.attention_dropout,
+                residual_dropout=config.residual_dropout,
+                use_rope=self.use_rope
+            )
+            for _ in range(config.num_layers)
+        ])
+
+        # Final norm
+        self.norm = get_normalization(config.normalization, config.hidden_dim)
+
+        # LM head
+        self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size, bias=False)
+
+        # Weight tying (optional, common in modern LMs)
+        # self.lm_head.weight = self.token_embedding.weight
+
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """Initialize weights (GPT-2 style)"""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """
+        Args:
+            input_ids: (batch_size, seq_len)
+            attention_mask: (batch_size, seq_len) or None
+
+        Returns:
+            logits: (batch_size, seq_len, vocab_size)
+        """
+        # Embed tokens
+        x = self.token_embedding(input_ids)  # (B, L, H)
+
+        # Add positional encoding (if absolute)
+        if hasattr(self, 'pos_encoding'):
+            x = self.pos_encoding(x)
+
+        # Apply transformer blocks
+        for layer in self.layers:
+            x = layer(x, attention_mask)
+
+        # Final norm
+        x = self.norm(x)
+
+        # LM head
+        logits = self.lm_head(x)  # (B, L, V)
+
+        return logits
+
+
+# ===== Model Factory =====
+
+def build_model(config: ArchitectureConfig) -> nn.Module:
+    """
+    Build model from configuration
+
+    Args:
+        config: ArchitectureConfig
+
+    Returns:
+        nn.Module (TransformerLM, MambaLM, etc.)
+    """
+    if config.arch_type == "transformer":
+        return TransformerLM(config)
+
+    elif config.arch_type == "linear_transformer":
+        # TODO: Implement LinearTransformer
+        raise NotImplementedError("LinearTransformer not yet implemented")
+
+    elif config.arch_type == "flash_attention":
+        # Use TransformerLM with FlashAttention
+        # TODO: Integrate flash_attn package
+        raise NotImplementedError("FlashAttention not yet implemented")
+
+    elif config.arch_type == "grouped_query_attention":
+        # TODO: Implement GQA
+        raise NotImplementedError("GQA not yet implemented")
+
+    elif config.arch_type == "mamba":
+        # TODO: Implement Mamba
+        raise NotImplementedError("Mamba not yet implemented")
+
+    elif config.arch_type == "rwkv":
+        # TODO: Implement RWKV
+        raise NotImplementedError("RWKV not yet implemented")
+
+    else:
+        raise ValueError(f"Unknown architecture type: {config.arch_type}")
+
+
+if __name__ == "__main__":
+    from search_space import get_baseline_architectures
+
+    print("="*60)
+    print("Model Architecture Test")
+    print("="*60)
+
+    # Test with baseline architectures
+    baselines = get_baseline_architectures()
+
+    for i, config in enumerate(baselines[:3], 1):  # Test first 3
+        print(f"\n[{i}] Testing {config.arch_type}...")
+
+        try:
+            model = build_model(config)
+
+            # Count parameters
+            num_params = sum(p.numel() for p in model.parameters())
+
+            # Test forward pass
+            batch_size = 2
+            seq_len = 128
+            input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+
+            with torch.no_grad():
+                logits = model(input_ids)
+
+            print(f"  [OK] Model built successfully")
+            print(f"  Parameters: {num_params:,} ({num_params/1e6:.1f}M)")
+            print(f"  Estimated: {config.estimate_parameters():,}")
+            print(f"  Output shape: {logits.shape}")
+            print(f"  Expected: ({batch_size}, {seq_len}, {config.vocab_size})")
+
+            assert logits.shape == (batch_size, seq_len, config.vocab_size)
+            print(f"  [OK] Forward pass successful")
+
+        except NotImplementedError as e:
+            print(f"  [SKIP] {e}")
+        except Exception as e:
+            print(f"  [ERROR] {e}")
+            raise
+
+    print(f"\n{'='*60}")
+    print("All tests passed!")
+    print("="*60)
+"""
+Neural Architecture Search - Search Space Definition
+
+MIT CS PhD レベルの探索空間設計
+"""
+
+from typing import Dict, List, Any, Tuple
+from dataclasses import dataclass, field
+import random
+import json
+
+
+@dataclass
+class ArchitectureConfig:
+    """アーキテクチャ設定"""
+
+    # Architecture type
+    arch_type: str  # "transformer", "linear_transformer", "mamba", etc.
+
+    # Model size
+    num_layers: int
+    hidden_dim: int
+    num_heads: int
+    ffn_multiplier: float
+
+    # Components
+    normalization: str  # "layernorm", "rmsnorm", "groupnorm"
+    activation: str  # "gelu", "silu", "geglu", "swiglu"
+    position_encoding: str  # "absolute", "rope", "alibi"
+
+    # Attention details
+    attention_dropout: float = 0.1
+    residual_dropout: float = 0.1
+
+    # Vocabulary
+    vocab_size: int = 50000
+    max_seq_length: int = 2048
+
+    # Quantization (for final model)
+    quantization: str = "fp16"  # "fp16", "int8", "int4"
+    pruning_ratio: float = 0.0  # 0.0 to 0.6
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            "arch_type": self.arch_type,
+            "num_layers": self.num_layers,
+            "hidden_dim": self.hidden_dim,
+            "num_heads": self.num_heads,
+            "ffn_multiplier": self.ffn_multiplier,
+            "normalization": self.normalization,
+            "activation": self.activation,
+            "position_encoding": self.position_encoding,
+            "attention_dropout": self.attention_dropout,
+            "residual_dropout": self.residual_dropout,
+            "vocab_size": self.vocab_size,
+            "max_seq_length": self.max_seq_length,
+            "quantization": self.quantization,
+            "pruning_ratio": self.pruning_ratio
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'ArchitectureConfig':
+        """Create from dictionary"""
+        return cls(**d)
+
+    def estimate_parameters(self) -> int:
+        """
+        パラメータ数の推定
+
+        Transformer の場合:
+        - Embedding: vocab_size * hidden_dim
+        - Each layer:
+            - Attention: 4 * hidden_dim^2
+            - FFN: 2 * hidden_dim * (ffn_multiplier * hidden_dim)
+        """
+        # Embedding
+        params = self.vocab_size * self.hidden_dim
+
+        # Layers
+        for _ in range(self.num_layers):
+            # Attention (Q, K, V, O)
+            params += 4 * self.hidden_dim * self.hidden_dim
+
+            # FFN
+            ffn_dim = int(self.hidden_dim * self.ffn_multiplier)
+            params += 2 * self.hidden_dim * ffn_dim
+
+            # Layer norm (x2)
+            params += 2 * self.hidden_dim
+
+        # Final layer norm
+        params += self.hidden_dim
+
+        # LM head
+        params += self.hidden_dim * self.vocab_size
+
+        return params
+
+    def estimate_size_mb(self) -> float:
+        """
+        モデルサイズの推定（MB）
+        """
+        params = self.estimate_parameters()
+
+        # Quantization
+        if self.quantization == "fp16":
+            bytes_per_param = 2
+        elif self.quantization == "int8":
+            bytes_per_param = 1
+        elif self.quantization == "int4":
+            bytes_per_param = 0.5
+        else:
+            bytes_per_param = 4  # fp32
+
+        # Pruning
+        effective_params = params * (1.0 - self.pruning_ratio)
+
+        size_bytes = effective_params * bytes_per_param
+        size_mb = size_bytes / (1024 * 1024)
+
+        return size_mb
+
+    def is_valid(self) -> Tuple[bool, str]:
+        """
+        設定の妥当性チェック
+
+        Returns:
+            (is_valid, error_message)
+        """
+        # Hidden dim must be divisible by num_heads
+        if self.hidden_dim % self.num_heads != 0:
+            return False, f"hidden_dim ({self.hidden_dim}) must be divisible by num_heads ({self.num_heads})"
+
+        # Model size check (target: 50-100MB)
+        size_mb = self.estimate_size_mb()
+        if size_mb > 500:  # 500MB を超えたら警告
+            return False, f"Model size ({size_mb:.1f} MB) too large"
+
+        return True, ""
+
+
+class SearchSpace:
+    """
+    NAS 探索空間の定義
+
+    MIT CS PhD レベルの設計:
+    - 最新論文の知見を統合
+    - 効率的な探索戦略
+    - 理論的裏付け
+    """
+
+    def __init__(self, mode: str = "full"):
+        """
+        Args:
+            mode: "minimal", "medium", "full"
+                - minimal: 高速テスト用（10^3 通り）
+                - medium: 中規模探索（10^6 通り）
+                - full: 完全探索（10^9 通り）
+        """
+        self.mode = mode
+        self.space = self._define_space(mode)
+
+    def _define_space(self, mode: str) -> Dict[str, List[Any]]:
+        """探索空間の定義"""
+
+        if mode == "minimal":
+            return {
+                "arch_type": ["transformer"],
+                "num_layers": [4, 6],
+                "hidden_dim": [256, 512],
+                "num_heads": [4, 8],
+                "ffn_multiplier": [4.0],
+                "normalization": ["layernorm"],
+                "activation": ["gelu"],
+                "position_encoding": ["absolute"],
+                "attention_dropout": [0.1],
+                "residual_dropout": [0.1],
+                "quantization": ["fp16"],
+                "pruning_ratio": [0.0]
+            }
+
+        elif mode == "medium":
+            return {
+                "arch_type": ["transformer", "linear_transformer"],
+                "num_layers": [4, 6, 8, 12],
+                "hidden_dim": [256, 384, 512, 768],
+                "num_heads": [4, 6, 8, 12],
+                "ffn_multiplier": [2.0, 3.0, 4.0],
+                "normalization": ["layernorm", "rmsnorm"],
+                "activation": ["gelu", "silu"],
+                "position_encoding": ["absolute", "rope"],
+                "attention_dropout": [0.0, 0.1],
+                "residual_dropout": [0.0, 0.1],
+                "quantization": ["fp16", "int8"],
+                "pruning_ratio": [0.0, 0.2, 0.4]
+            }
+
+        else:  # full
+            return {
+                "arch_type": [
+                    "transformer",
+                    "linear_transformer",
+                    "flash_attention",
+                    "grouped_query_attention",
+                    "mamba",
+                    "rwkv"
+                ],
+                "num_layers": [2, 4, 6, 8, 12, 16],
+                "hidden_dim": [128, 256, 384, 512, 768, 1024],
+                "num_heads": [2, 4, 6, 8, 12, 16],
+                "ffn_multiplier": [2.0, 2.5, 3.0, 4.0],
+                "normalization": ["layernorm", "rmsnorm", "groupnorm"],
+                "activation": ["gelu", "silu", "geglu", "swiglu"],
+                "position_encoding": ["absolute", "rope", "alibi"],
+                "attention_dropout": [0.0, 0.05, 0.1, 0.2],
+                "residual_dropout": [0.0, 0.05, 0.1, 0.2],
+                "quantization": ["fp16", "int8", "int4"],
+                "pruning_ratio": [0.0, 0.2, 0.4, 0.6]
+            }
+
+    def sample_random(self) -> ArchitectureConfig:
+        """ランダムにアーキテクチャをサンプリング"""
+        config = {}
+        for key, values in self.space.items():
+            config[key] = random.choice(values)
+
+        arch = ArchitectureConfig(**config)
+
+        # Validity check
+        is_valid, error = arch.is_valid()
+        if not is_valid:
+            # Retry with adjusted parameters
+            if "hidden_dim" in error and "num_heads" in error:
+                # Adjust num_heads to be divisible
+                while config["hidden_dim"] % config["num_heads"] != 0:
+                    config["num_heads"] = random.choice(self.space["num_heads"])
+                arch = ArchitectureConfig(**config)
+
+        return arch
+
+    def sample_smart(self, base_config: ArchitectureConfig = None) -> ArchitectureConfig:
+        """
+        スマートサンプリング（既知の良い設定の近傍を探索）
+
+        Args:
+            base_config: 基準となる設定（Noneの場合はベストプラクティス）
+        """
+        if base_config is None:
+            # Best practice baseline (LLaMA-like)
+            base_config = ArchitectureConfig(
+                arch_type="transformer",
+                num_layers=6,
+                hidden_dim=512,
+                num_heads=8,
+                ffn_multiplier=2.5,
+                normalization="rmsnorm",
+                activation="swiglu",
+                position_encoding="rope"
+            )
+
+        # Mutate slightly
+        config = base_config.to_dict()
+
+        # Choose 1-3 parameters to mutate
+        num_mutations = random.randint(1, 3)
+        keys_to_mutate = random.sample(list(self.space.keys()), num_mutations)
+
+        for key in keys_to_mutate:
+            config[key] = random.choice(self.space[key])
+
+        arch = ArchitectureConfig(**config)
+
+        # Validity check
+        is_valid, error = arch.is_valid()
+        if not is_valid:
+            # Fall back to random sampling
+            return self.sample_random()
+
+        return arch
+
+    def get_search_space_size(self) -> int:
+        """探索空間のサイズを計算"""
+        size = 1
+        for values in self.space.values():
+            size *= len(values)
+        return size
+
+
+def get_baseline_architectures() -> List[ArchitectureConfig]:
+    """
+    ベースラインアーキテクチャ（既知の良い設定）
+
+    Returns:
+        List of baseline configurations
+    """
+    baselines = []
+
+    # 1. GPT-2 Small-like (but smaller)
+    baselines.append(ArchitectureConfig(
+        arch_type="transformer",
+        num_layers=6,
+        hidden_dim=384,
+        num_heads=6,
+        ffn_multiplier=4.0,
+        normalization="layernorm",
+        activation="gelu",
+        position_encoding="absolute"
+    ))
+
+    # 2. LLaMA-style (efficient)
+    baselines.append(ArchitectureConfig(
+        arch_type="transformer",
+        num_layers=6,
+        hidden_dim=512,
+        num_heads=8,
+        ffn_multiplier=2.5,
+        normalization="rmsnorm",
+        activation="swiglu",
+        position_encoding="rope"
+    ))
+
+    # 3. Ultra-small (50MB target)
+    baselines.append(ArchitectureConfig(
+        arch_type="transformer",
+        num_layers=4,
+        hidden_dim=256,
+        num_heads=4,
+        ffn_multiplier=2.0,
+        normalization="rmsnorm",
+        activation="silu",
+        position_encoding="rope",
+        quantization="int8",
+        pruning_ratio=0.4
+    ))
+
+    # 4. Mamba (State Space Model)
+    baselines.append(ArchitectureConfig(
+        arch_type="mamba",
+        num_layers=6,
+        hidden_dim=512,
+        num_heads=8,  # Mamba doesn't use heads, but keep for compatibility
+        ffn_multiplier=4.0,
+        normalization="rmsnorm",
+        activation="silu",
+        position_encoding="absolute"  # SSM doesn't need positional encoding
+    ))
+
+    return baselines
+
+
+if __name__ == "__main__":
+    # Test
+    print("=" * 60)
+    print("NAS Search Space Test")
+    print("=" * 60)
+
+    # Test different modes
+    for mode in ["minimal", "medium", "full"]:
+        space = SearchSpace(mode=mode)
+        size = space.get_search_space_size()
+        print(f"\n{mode.upper()} mode: {size:,} possible configurations")
+
+        # Sample random
+        arch = space.sample_random()
+        print(f"Random sample:")
+        print(f"  Type: {arch.arch_type}")
+        print(f"  Layers: {arch.num_layers}")
+        print(f"  Hidden: {arch.hidden_dim}")
+        print(f"  Parameters: {arch.estimate_parameters():,}")
+        print(f"  Size: {arch.estimate_size_mb():.1f} MB")
+
+    # Test baselines
+    print("\n" + "=" * 60)
+    print("Baseline Architectures")
+    print("=" * 60)
+
+    baselines = get_baseline_architectures()
+    for i, arch in enumerate(baselines, 1):
+        print(f"\nBaseline {i}: {arch.arch_type}")
+        print(f"  Layers: {arch.num_layers}, Hidden: {arch.hidden_dim}")
+        print(f"  Norm: {arch.normalization}, Act: {arch.activation}")
+        print(f"  Parameters: {arch.estimate_parameters():,}")
+        print(f"  Size: {arch.estimate_size_mb():.1f} MB")
+
+        is_valid, error = arch.is_valid()
+        print(f"  Valid: {is_valid}")
+        if not is_valid:
+            print(f"  Error: {error}")

@@ -1,0 +1,13 @@
+# OpenCUA公式推奨バージョン（xlangai/OpenCUA-32B requirements.txt）
+transformers==4.53.0
+torch==2.8.0
+pillow==11.3.0
+tiktoken==0.11.0
+blobfile==3.0.0
+accelerate==1.10.0
+
+# その他の依存パッケージ
+mss>=9.0.0
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+pyyaml>=6.0

@@ -1,0 +1,4155 @@
+        config: Optional[Union[PretrainedConfig, str, os.PathLike]] = None,
+        cache_dir: Optional[Union[str, os.PathLike]] = None,
+        ignore_mismatched_sizes: bool = False,
+        force_download: bool = False,
+        local_files_only: bool = False,
+        token: Optional[Union[str, bool]] = None,
+        revision: str = "main",
+        use_safetensors: Optional[bool] = None,
+        weights_only: bool = True,
+        **kwargs,
+    ) -> SpecificPreTrainedModelType:
+        r"""
+        Instantiate a pretrained pytorch model from a pre-trained model configuration.
+
+        The model is set in evaluation mode by default using `model.eval()` (Dropout modules are deactivated). To train
+        the model, you should first set it back in training mode with `model.train()`.
+
+        The warning *Weights from XXX not initialized from pretrained model* means that the weights of XXX do not come
+        pretrained with the rest of the model. It is up to you to train those weights with a downstream fine-tuning
+        task.
+
+        The warning *Weights from XXX not used in YYY* means that the layer XXX is not used by YYY, therefore those
+        weights are discarded.
+
+        Parameters:
+            pretrained_model_name_or_path (`str` or `os.PathLike`, *optional*):
+                Can be either:
+
+                    - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
+                    - A path to a *directory* containing model weights saved using
+                      [`~PreTrainedModel.save_pretrained`], e.g., `./my_model_directory/`.
+                    - A path or url to a *tensorflow index checkpoint file* (e.g, `./tf_model/model.ckpt.index`). In
+                      this case, `from_tf` should be set to `True` and a configuration object should be provided as
+                      `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
+                      PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
+                    - A path or url to a model folder containing a *flax checkpoint file* in *.msgpack* format (e.g,
+                      `./flax_model/` containing `flax_model.msgpack`). In this case, `from_flax` should be set to
+                      `True`.
+                    - `None` if you are both providing the configuration and state dictionary (resp. with keyword
+                      arguments `config` and `state_dict`).
+            model_args (sequence of positional arguments, *optional*):
+                All remaining positional arguments will be passed to the underlying model's `__init__` method.
+            config (`Union[PretrainedConfig, str, os.PathLike]`, *optional*):
+                Can be either:
+
+                    - an instance of a class derived from [`PretrainedConfig`],
+                    - a string or path valid as input to [`~PretrainedConfig.from_pretrained`].
+
+                Configuration for the model to use instead of an automatically loaded configuration. Configuration can
+                be automatically loaded when:
+
+                    - The model is a model provided by the library (loaded with the *model id* string of a pretrained
+                      model).
+                    - The model was saved using [`~PreTrainedModel.save_pretrained`] and is reloaded by supplying the
+                      save directory.
+                    - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
+                      configuration JSON file named *config.json* is found in the directory.
+            state_dict (`dict[str, torch.Tensor]`, *optional*):
+                A state dictionary to use instead of a state dictionary loaded from saved weights file.
+
+                This option can be used if you want to create a model from a pretrained configuration but load your own
+                weights. In this case though, you should check if using [`~PreTrainedModel.save_pretrained`] and
+                [`~PreTrainedModel.from_pretrained`] is not a simpler option.
+            cache_dir (`Union[str, os.PathLike]`, *optional*):
+                Path to a directory in which a downloaded pretrained model configuration should be cached if the
+                standard cache should not be used.
+            from_tf (`bool`, *optional*, defaults to `False`):
+                Load the model weights from a TensorFlow checkpoint save file (see docstring of
+                `pretrained_model_name_or_path` argument).
+            from_flax (`bool`, *optional*, defaults to `False`):
+                Load the model weights from a Flax checkpoint save file (see docstring of
+                `pretrained_model_name_or_path` argument).
+            ignore_mismatched_sizes (`bool`, *optional*, defaults to `False`):
+                Whether or not to raise an error if some of the weights from the checkpoint do not have the same size
+                as the weights of the model (if for instance, you are instantiating a model with 10 labels from a
+                checkpoint with 3 labels).
+            force_download (`bool`, *optional*, defaults to `False`):
+                Whether or not to force the (re-)download of the model weights and configuration files, overriding the
+                cached versions if they exist.
+            resume_download:
+                Deprecated and ignored. All downloads are now resumed by default when possible.
+                Will be removed in v5 of Transformers.
+            proxies (`dict[str, str]`, *optional*):
+                A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
+                'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
+            output_loading_info(`bool`, *optional*, defaults to `False`):
+                Whether ot not to also return a dictionary containing missing keys, unexpected keys and error messages.
+            local_files_only(`bool`, *optional*, defaults to `False`):
+                Whether or not to only look at local files (i.e., do not try to download the model).
+            token (`str` or `bool`, *optional*):
+                The token to use as HTTP bearer authorization for remote files. If `True`, or not specified, will use
+                the token generated when running `huggingface-cli login` (stored in `~/.huggingface`).
+            revision (`str`, *optional*, defaults to `"main"`):
+                The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
+                git-based system for storing models and other artifacts on huggingface.co, so `revision` can be any
+                identifier allowed by git.
+
+                <Tip>
+
+                To test a pull request you made on the Hub, you can pass `revision="refs/pr/<pr_number>"`.
+
+                </Tip>
+            attn_implementation (`str`, *optional*):
+                The attention implementation to use in the model (if relevant). Can be any of `"eager"` (manual implementation of the attention), `"sdpa"` (using [`F.scaled_dot_product_attention`](https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention.html)), `"flash_attention_2"` (using [Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention)), or `"flash_attention_3"` (using [Dao-AILab/flash-attention/hopper](https://github.com/Dao-AILab/flash-attention/tree/main/hopper)). By default, if available, SDPA will be used for torch>=2.1.1. The default is otherwise the manual `"eager"` implementation.
+
+            > Parameters for big model inference
+
+            torch_dtype (`str` or `torch.dtype`, *optional*):
+                Override the default `torch.dtype` and load the model under a specific `dtype`. The different options
+                are:
+
+                1. `torch.float16` or `torch.bfloat16` or `torch.float`: load in a specified
+                  `dtype`, ignoring the model's `config.torch_dtype` if one exists. If not specified
+                  - the model will get loaded in `torch.float` (fp32).
+
+                2. `"auto"` - A `torch_dtype` entry in the `config.json` file of the model will be
+                  attempted to be used. If this entry isn't found then next check the `dtype` of the first weight in
+                  the checkpoint that's of a floating point type and use that as `dtype`. This will load the model
+                  using the `dtype` it was saved in at the end of the training. It can't be used as an indicator of how
+                  the model was trained. Since it could be trained in one of half precision dtypes, but saved in fp32.
+
+                3. A string that is a valid `torch.dtype`. E.g. "float32" loads the model in `torch.float32`, "float16" loads in `torch.float16` etc.
+
+                <Tip>
+
+                For some models the `dtype` they were trained in is unknown - you may try to check the model's paper or
+                reach out to the authors and ask them to add this information to the model's card and to insert the
+                `torch_dtype` entry in `config.json` on the hub.
+
+                </Tip>
+
+            device_map (`str` or `dict[str, Union[int, str, torch.device]]` or `int` or `torch.device`, *optional*):
+                A map that specifies where each submodule should go. It doesn't need to be refined to each
+                parameter/buffer name, once a given module name is inside, every submodule of it will be sent to the
+                same device. If we only pass the device (*e.g.*, `"cpu"`, `"cuda:1"`, `"mps"`, or a GPU ordinal rank
+                like `1`) on which the model will be allocated, the device map will map the entire model to this
+                device. Passing `device_map = 0` means put the whole model on GPU 0.
+
+                To have Accelerate compute the most optimized `device_map` automatically, set `device_map="auto"`. For
+                more information about each option see [designing a device
+                map](https://hf.co/docs/accelerate/main/en/usage_guides/big_modeling#designing-a-device-map).
+            max_memory (`Dict`, *optional*):
+                A dictionary device identifier to maximum memory if using `device_map`. Will default to the maximum memory available for each
+                GPU and the available CPU RAM if unset.
+            tp_plan (`str`, *optional*):
+                A torch tensor parallel plan, see [here](https://pytorch.org/tutorials/intermediate/TP_tutorial.html). Currently, it only accepts
+                `tp_plan="auto"` to use predefined plan based on the model. Note that if you use it, you should launch your script accordingly with
+                `torchrun [args] script.py`. This will be much faster than using a `device_map`, but has limitations.
+            tp_size (`str`, *optional*):
+                A torch tensor parallel degree. If not provided would default to world size.
+            device_mesh (`torch.distributed.DeviceMesh`, *optional*):
+                A torch device mesh. If not provided would default to world size. Used only for tensor parallel for now.
+            offload_folder (`str` or `os.PathLike`, *optional*):
+                If the `device_map` contains any value `"disk"`, the folder where we will offload weights.
+            offload_state_dict (`bool`, *optional*):
+                If `True`, will temporarily offload the CPU state dict to the hard drive to avoid getting out of CPU
+                RAM if the weight of the CPU state dict + the biggest shard of the checkpoint does not fit. Defaults to
+                `True` when there is some disk offload.
+            offload_buffers (`bool`, *optional*):
+                Whether or not to offload the buffers with the model parameters.
+            quantization_config (`Union[QuantizationConfigMixin,Dict]`, *optional*):
+                A dictionary of configuration parameters or a QuantizationConfigMixin object for quantization (e.g
+                bitsandbytes, gptq). There may be other quantization-related kwargs, including `load_in_4bit` and
+                `load_in_8bit`, which are parsed by QuantizationConfigParser. Supported only for bitsandbytes
+                quantizations and not preferred. consider inserting all such arguments into quantization_config
+                instead.
+            subfolder (`str`, *optional*, defaults to `""`):
+                In case the relevant files are located inside a subfolder of the model repo on huggingface.co, you can
+                specify the folder name here.
+            variant (`str`, *optional*):
+                If specified load weights from `variant` filename, *e.g.* pytorch_model.<variant>.bin. `variant` is
+                ignored when using `from_tf` or `from_flax`.
+            use_safetensors (`bool`, *optional*, defaults to `None`):
+                Whether or not to use `safetensors` checkpoints. Defaults to `None`. If not specified and `safetensors`
+                is not installed, it will be set to `False`.
+            weights_only (`bool`, *optional*, defaults to `True`):
+                Indicates whether unpickler should be restricted to loading only tensors, primitive types,
+                dictionaries and any types added via torch.serialization.add_safe_globals().
+                When set to False, we can load wrapper tensor subclass weights.
+            key_mapping (`dict[str, str], *optional*):
+                A potential mapping of the weight names if using a model on the Hub which is compatible to a Transformers
+                architecture, but was not converted accordingly.
+            kwargs (remaining dictionary of keyword arguments, *optional*):
+                Can be used to update the configuration object (after it being loaded) and initiate the model (e.g.,
+                `output_attentions=True`). Behaves differently depending on whether a `config` is provided or
+                automatically loaded:
+
+                    - If a configuration is provided with `config`, `**kwargs` will be directly passed to the
+                      underlying model's `__init__` method (we assume all relevant updates to the configuration have
+                      already been done)
+                    - If a configuration is not provided, `kwargs` will be first passed to the configuration class
+                      initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
+                      corresponds to a configuration attribute will be used to override said attribute with the
+                      supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
+                      will be passed to the underlying model's `__init__` function.
+
+        <Tip>
+
+        Activate the special ["offline-mode"](https://huggingface.co/transformers/installation.html#offline-mode) to
+        use this method in a firewalled environment.
+
+        </Tip>
+
+        Examples:
+
+        ```python
+        >>> from transformers import BertConfig, BertModel
+
+        >>> # Download model and configuration from huggingface.co and cache.
+        >>> model = BertModel.from_pretrained("google-bert/bert-base-uncased")
+        >>> # Model was saved using *save_pretrained('./test/saved_model/')* (for example purposes, not runnable).
+        >>> model = BertModel.from_pretrained("./test/saved_model/")
+        >>> # Update configuration during loading.
+        >>> model = BertModel.from_pretrained("google-bert/bert-base-uncased", output_attentions=True)
+        >>> assert model.config.output_attentions == True
+        >>> # Loading from a TF checkpoint file instead of a PyTorch model (slower, for example purposes, not runnable).
+        >>> config = BertConfig.from_json_file("./tf_model/my_tf_model_config.json")
+        >>> model = BertModel.from_pretrained("./tf_model/my_tf_checkpoint.ckpt.index", from_tf=True, config=config)
+        >>> # Loading from a Flax checkpoint file instead of a PyTorch model (slower)
+        >>> model = BertModel.from_pretrained("google-bert/bert-base-uncased", from_flax=True)
+        ```
+        """
+        state_dict = kwargs.pop("state_dict", None)
+        from_tf = kwargs.pop("from_tf", False)
+        from_flax = kwargs.pop("from_flax", False)
+        proxies = kwargs.pop("proxies", None)
+        output_loading_info = kwargs.pop("output_loading_info", False)
+        use_auth_token = kwargs.pop("use_auth_token", None)
+        from_pipeline = kwargs.pop("_from_pipeline", None)
+        from_auto_class = kwargs.pop("_from_auto", False)
+        torch_dtype = kwargs.pop("torch_dtype", None)
+        device_map = kwargs.pop("device_map", None)
+        max_memory = kwargs.pop("max_memory", None)
+        offload_folder = kwargs.pop("offload_folder", None)
+        offload_state_dict = kwargs.pop("offload_state_dict", False)
+        offload_buffers = kwargs.pop("offload_buffers", False)
+        load_in_8bit = kwargs.pop("load_in_8bit", False)
+        load_in_4bit = kwargs.pop("load_in_4bit", False)
+        quantization_config = kwargs.pop("quantization_config", None)
+        subfolder = kwargs.pop("subfolder", "")
+        commit_hash = kwargs.pop("_commit_hash", None)
+        variant = kwargs.pop("variant", None)
+        adapter_kwargs = kwargs.pop("adapter_kwargs", {})
+        adapter_name = kwargs.pop("adapter_name", "default")
+        generation_config = kwargs.pop("generation_config", None)
+        gguf_file = kwargs.pop("gguf_file", None)
+        tp_plan = kwargs.pop("tp_plan", None)
+        tp_size = kwargs.pop("tp_size", None)
+        device_mesh = kwargs.pop("device_mesh", None)
+        trust_remote_code = kwargs.pop("trust_remote_code", None)
+        use_kernels = kwargs.pop("use_kernels", False)
+
+        key_mapping = kwargs.pop("key_mapping", None)
+        # Load models with hardcoded key mapping on class for VLMs only, to keep BC and standardize model
+        if key_mapping is None and any(allowed_name in cls.__name__.lower() for allowed_name in VLMS):
+            key_mapping = cls._checkpoint_conversion_mapping
+
+        # Not used anymore -- remove them from the kwargs
+        _ = kwargs.pop("resume_download", None)
+        _ = kwargs.pop("mirror", None)
+        _ = kwargs.pop("_fast_init", True)
+        _ = kwargs.pop("low_cpu_mem_usage", None)
+
+        if state_dict is not None and (pretrained_model_name_or_path is not None or gguf_file is not None):
+            raise ValueError(
+                "`state_dict` cannot be passed together with a model name or a `gguf_file`. Use one of the two loading strategies."
+            )
+        if tp_size is not None and tp_plan is None:
+            raise ValueError("tp_plan has to be set when tp_size is passed.")
+        if tp_plan is not None and tp_plan != "auto":
+            # TODO: we can relax this check when we support taking tp_plan from a json file, for example.
+            raise ValueError(f"tp_plan supports 'auto' only for now but got {tp_plan}.")
+        if tp_plan is not None and device_map is not None:
+            raise ValueError(
+                "`tp_plan` and `device_map` are mutually exclusive. Choose either one for parallelization."
+            )
+
+        # If torchrun was used, make sure to TP by default. This way people don't need to change tp or device map
+        if device_map == "auto" and tp_plan is None and int(os.environ.get("WORLD_SIZE", 0)):
+            tp_plan = "auto"  # device_map = "auto" in torchrun equivalent to TP plan = AUTO!
+            device_map = None
+
+        # We need to correctly dispatch the model on the current process device. The easiest way for this is to use a simple
+        # `device_map` pointing to the correct device
+        if tp_plan is not None:
+            if device_mesh is None and tp_plan is not None:
+                tp_plan, device_map, device_mesh = initialize_tensor_parallelism(tp_plan, tp_size=None)
+            else:
+                # TODO: make device_mesh support multiple dimensions
+                if device_mesh.ndim == 1:
+                    raise ValueError("device_mesh must be 1 dimensional and will be used for TP")
+                device_map = torch.device(device_mesh.device_type, int(os.environ["LOCAL_RANK"]))
+
+        if use_auth_token is not None:
+            warnings.warn(
+                "The `use_auth_token` argument is deprecated and will be removed in v5 of Transformers. Please use `token` instead.",
+                FutureWarning,
+            )
+            if token is not None:
+                raise ValueError(
+                    "`token` and `use_auth_token` are both specified. Please set only the argument `token`."
+                )
+            token = use_auth_token
+
+        if token is not None and adapter_kwargs is not None and "token" not in adapter_kwargs:
+            adapter_kwargs["token"] = token
+
+        if use_safetensors is None and not is_safetensors_available():
+            use_safetensors = False
+
+        if gguf_file is not None and not is_accelerate_available():
+            raise ValueError("accelerate is required when loading a GGUF file `pip install accelerate`.")
+
+        if commit_hash is None:
+            if not isinstance(config, PretrainedConfig):
+                # We make a call to the config file first (which may be absent) to get the commit hash as soon as possible
+                resolved_config_file = cached_file(
+                    pretrained_model_name_or_path,
+                    CONFIG_NAME,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    local_files_only=local_files_only,
+                    token=token,
+                    revision=revision,
+                    subfolder=subfolder,
+                    _raise_exceptions_for_gated_repo=False,
+                    _raise_exceptions_for_missing_entries=False,
+                    _raise_exceptions_for_connection_errors=False,
+                )
+                commit_hash = extract_commit_hash(resolved_config_file, commit_hash)
+            else:
+                commit_hash = getattr(config, "_commit_hash", None)
+
+        if is_peft_available():
+            _adapter_model_path = adapter_kwargs.pop("_adapter_model_path", None)
+
+            if _adapter_model_path is None:
+                _adapter_model_path = find_adapter_config_file(
+                    pretrained_model_name_or_path,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    local_files_only=local_files_only,
+                    _commit_hash=commit_hash,
+                    **adapter_kwargs,
+                )
+            if _adapter_model_path is not None and os.path.isfile(_adapter_model_path):
+                with open(_adapter_model_path, "r", encoding="utf-8") as f:
+                    _adapter_model_path = pretrained_model_name_or_path
+                    pretrained_model_name_or_path = json.load(f)["base_model_name_or_path"]
+        else:
+            _adapter_model_path = None
+
+        # Potentially detect context manager or global device, and use it (only if no device_map was provided)
+        if device_map is None and not is_deepspeed_zero3_enabled():
+            device_in_context = get_torch_context_manager_or_global_device()
+            if device_in_context == torch.device("meta"):
+                # TODO Cyril: raise an error instead of the warning in v4.53 (and change the test to check for raise instead of success)
+                logger.warning(
+                    "We detected that you are using `from_pretrained` with a meta device context manager or `torch.set_default_device('meta')`\n"
+                    "This is an anti-pattern and will raise an Error in version v4.53\nIf you want to initialize a model on the meta device, use "
+                    "the context manager or global device with `from_config`, or `ModelClass(config)`"
+                )
+            device_map = device_in_context
+
+        # change device_map into a map if we passed an int, a str or a torch.device
+        if isinstance(device_map, torch.device):
+            device_map = {"": device_map}
+        elif isinstance(device_map, str) and device_map not in ["auto", "balanced", "balanced_low_0", "sequential"]:
+            try:
+                device_map = {"": torch.device(device_map)}
+            except RuntimeError:
+                raise ValueError(
+                    "When passing device_map as a string, the value needs to be a device name (e.g. cpu, cuda:0) or "
+                    f"'auto', 'balanced', 'balanced_low_0', 'sequential' but found {device_map}."
+                )
+        elif isinstance(device_map, int):
+            if device_map < 0:
+                raise ValueError(
+                    "You can't pass device_map as a negative int. If you want to put the model on the cpu, pass device_map = 'cpu' "
+                )
+            else:
+                device_map = {"": device_map}
+
+        if device_map is not None:
+            if is_deepspeed_zero3_enabled():
+                raise ValueError("DeepSpeed Zero-3 is not compatible with passing a `device_map`.")
+            if not is_accelerate_available():
+                raise ValueError(
+                    "Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` "
+                    "requires `accelerate`. You can install it with `pip install accelerate`"
+                )
+
+        # handling bnb config from kwargs, remove after `load_in_{4/8}bit` deprecation.
+        if load_in_4bit or load_in_8bit:
+            if quantization_config is not None:
+                raise ValueError(
+                    "You can't pass `load_in_4bit`or `load_in_8bit` as a kwarg when passing "
+                    "`quantization_config` argument at the same time."
+                )
+
+            # preparing BitsAndBytesConfig from kwargs
+            config_dict = {k: v for k, v in kwargs.items() if k in inspect.signature(BitsAndBytesConfig).parameters}
+            config_dict = {**config_dict, "load_in_4bit": load_in_4bit, "load_in_8bit": load_in_8bit}
+            quantization_config, kwargs = BitsAndBytesConfig.from_dict(
+                config_dict=config_dict, return_unused_kwargs=True, **kwargs
+            )
+            logger.warning(
+                "The `load_in_4bit` and `load_in_8bit` arguments are deprecated and will be removed in the future versions. "
+                "Please, pass a `BitsAndBytesConfig` object in `quantization_config` argument instead."
+            )
+
+        from_pt = not (from_tf | from_flax)
+
+        user_agent = {"file_type": "model", "framework": "pytorch", "from_auto_class": from_auto_class}
+        if from_pipeline is not None:
+            user_agent["using_pipeline"] = from_pipeline
+
+        if is_offline_mode() and not local_files_only:
+            logger.info("Offline mode: forcing local_files_only=True")
+            local_files_only = True
+
+        # Load config if we don't provide a configuration
+        if not isinstance(config, PretrainedConfig):
+            config_path = config if config is not None else pretrained_model_name_or_path
+            config, model_kwargs = cls.config_class.from_pretrained(
+                config_path,
+                cache_dir=cache_dir,
+                return_unused_kwargs=True,
+                force_download=force_download,
+                proxies=proxies,
+                local_files_only=local_files_only,
+                token=token,
+                revision=revision,
+                subfolder=subfolder,
+                gguf_file=gguf_file,
+                _from_auto=from_auto_class,
+                _from_pipeline=from_pipeline,
+                **kwargs,
+            )
+            if "gguf_file" in model_kwargs:
+                model_kwargs.pop("gguf_file")
+        else:
+            # In case one passes a config to `from_pretrained` + "attn_implementation"
+            # override the `_attn_implementation` attribute to `attn_implementation` of the kwargs
+            # Please see: https://github.com/huggingface/transformers/issues/28038
+
+            # Overwrite `config._attn_implementation` by the one from the kwargs --> in auto-factory
+            # we pop attn_implementation from the kwargs but this handles the case where users
+            # passes manually the config to `from_pretrained`.
+            config = copy.deepcopy(config)
+
+            kwarg_attn_imp = kwargs.pop("attn_implementation", None)
+            if kwarg_attn_imp is not None:
+                config._attn_implementation = kwarg_attn_imp
+
+            model_kwargs = kwargs
+
+        transformers_explicit_filename = getattr(config, "transformers_weights", None)
+
+        if transformers_explicit_filename is not None:
+            if not transformers_explicit_filename.endswith(
+                ".safetensors"
+            ) and not transformers_explicit_filename.endswith(".safetensors.index.json"):
+                raise ValueError(
+                    "The transformers file in the config seems to be incorrect: it is neither a safetensors file "
+                    "(*.safetensors) nor a safetensors index file (*.safetensors.index.json): "
+                    f"{transformers_explicit_filename}"
+                )
+
+        pre_quantized = hasattr(config, "quantization_config")
+        if pre_quantized and not AutoHfQuantizer.supports_quant_method(config.quantization_config):
+            pre_quantized = False
+
+        if pre_quantized or quantization_config is not None:
+            if pre_quantized:
+                config.quantization_config = AutoHfQuantizer.merge_quantization_configs(
+                    config.quantization_config, quantization_config
+                )
+            else:
+                config.quantization_config = quantization_config
+
+            hf_quantizer = AutoHfQuantizer.from_config(
+                config.quantization_config,
+                pre_quantized=pre_quantized,
+            )
+        else:
+            hf_quantizer = None
+
+        if hf_quantizer is not None:
+            hf_quantizer.validate_environment(
+                torch_dtype=torch_dtype,
+                from_tf=from_tf,
+                from_flax=from_flax,
+                device_map=device_map,
+                weights_only=weights_only,
+            )
+            torch_dtype = hf_quantizer.update_torch_dtype(torch_dtype)
+            device_map = hf_quantizer.update_device_map(device_map)
+            config = hf_quantizer.update_tp_plan(config)
+
+            # In order to ensure popular quantization methods are supported. Can be disable with `disable_telemetry`
+            if hasattr(hf_quantizer.quantization_config.quant_method, "value"):
+                user_agent["quant"] = hf_quantizer.quantization_config.quant_method.value
+            else:
+                user_agent["quant"] = hf_quantizer.quantization_config.quant_method
+
+        if gguf_file is not None and hf_quantizer is not None:
+            raise ValueError(
+                "You cannot combine Quantization and loading a model from a GGUF file, try again by making sure you did not passed a `quantization_config` or that you did not load a quantized model from the Hub."
+            )
+
+        if (
+            gguf_file
+            and device_map is not None
+            and ((isinstance(device_map, dict) and "disk" in device_map.values()) or "disk" in device_map)
+        ):
+            raise RuntimeError(
+                "One or more modules is configured to be mapped to disk. Disk offload is not supported for models "
+                "loaded from GGUF files."
+            )
+
+        checkpoint_files, sharded_metadata = _get_resolved_checkpoint_files(
+            pretrained_model_name_or_path=pretrained_model_name_or_path,
+            subfolder=subfolder,
+            variant=variant,
+            gguf_file=gguf_file,
+            from_tf=from_tf,
+            from_flax=from_flax,
+            use_safetensors=use_safetensors,
+            cache_dir=cache_dir,
+            force_download=force_download,
+            proxies=proxies,
+            local_files_only=local_files_only,
+            token=token,
+            user_agent=user_agent,
+            revision=revision,
+            commit_hash=commit_hash,
+            is_remote_code=cls._auto_class is not None,
+            transformers_explicit_filename=transformers_explicit_filename,
+        )
+
+        is_sharded = sharded_metadata is not None
+        is_quantized = hf_quantizer is not None
+        is_from_file = pretrained_model_name_or_path is not None or gguf_file is not None
+
+        if (
+            is_safetensors_available()
+            and is_from_file
+            and not is_sharded
+            and checkpoint_files[0].endswith(".safetensors")
+        ):
+            with safe_open(checkpoint_files[0], framework="pt") as f:
+                metadata = f.metadata()
+
+            if metadata is None:
+                # Assume it's a pytorch checkpoint (introduced for timm checkpoints)
+                pass
+            elif metadata.get("format") == "pt":
+                pass
+            elif metadata.get("format") == "tf":
+                from_tf = True
+                logger.info("A TensorFlow safetensors file is being loaded in a PyTorch model.")
+            elif metadata.get("format") == "flax":
+                from_flax = True
+                logger.info("A Flax safetensors file is being loaded in a PyTorch model.")
+            elif metadata.get("format") == "mlx":
+                # This is a mlx file, we assume weights are compatible with pt
+                pass
+            else:
+                raise ValueError(
+                    f"Incompatible safetensors file. File metadata is not ['pt', 'tf', 'flax', 'mlx'] but {metadata.get('format')}"
+                )
+
+        from_pt = not (from_tf | from_flax)
+
+        if from_pt:
+            if gguf_file:
+                from .modeling_gguf_pytorch_utils import load_gguf_checkpoint
+
+                # we need a dummy model to get the state_dict - for this reason, we keep the state_dict as if it was
+                # passed directly as a kwarg from now on
+                with torch.device("meta"):
+                    dummy_model = cls(config)
+                state_dict = load_gguf_checkpoint(checkpoint_files[0], return_tensors=True, model_to_load=dummy_model)[
+                    "tensors"
+                ]
+
+            # Find the correct dtype based on current state
+            config, torch_dtype, dtype_orig = _get_torch_dtype(
+                cls, torch_dtype, checkpoint_files, config, sharded_metadata, state_dict, weights_only
+            )
+
+        config.name_or_path = pretrained_model_name_or_path
+
+        # Instantiate model.
+        model_init_context = cls.get_init_context(is_quantized, _is_ds_init_called)
+
+        config = copy.deepcopy(config)  # We do not want to modify the config inplace in from_pretrained.
+        if not getattr(config, "_attn_implementation_autoset", False):
+            config = cls._autoset_attn_implementation(
+                config,
+                torch_dtype=torch_dtype,
+                device_map=device_map,
+            )
+
+        with ContextManagers(model_init_context):
+            # Let's make sure we don't run the init function of buffer modules
+            model = cls(config, *model_args, **model_kwargs)
+
+        # Make sure to tie the weights correctly
+        model.tie_weights()
+
+        # Last check for tp
+        if device_mesh is not None and not model.supports_tp_plan:
+            if config.base_model_tp_plan is None and config.get_text_config().base_model_tp_plan is None:
+                raise NotImplementedError("This model does not have a tensor parallel plan.")
+
+        # make sure we use the model's config since the __init__ call might have copied it
+        config = model.config
+
+        # Find fp32 modules if needed
+        keep_in_fp32_modules = []
+        # The _keep_in_fp32_modules flag is only used to avoid bf16 -> fp16 casting precision issues. It was introduced
+        # in case of force loading a model that should stay bf16 in fp16 (which includes a few quantizers as this is a pre-processing
+        # step for e.g. bitsandbytes). See https://github.com/huggingface/transformers/issues/20287 for details.
+        if model._keep_in_fp32_modules is not None and (
+            torch_dtype == torch.float16 or getattr(hf_quantizer, "use_keep_in_fp32_modules", False)
+        ):
+            keep_in_fp32_modules.extend(model._keep_in_fp32_modules)
+
+        if model._keep_in_fp32_modules_strict is not None and (
+            torch_dtype == torch.float16 or torch_dtype == torch.bfloat16
+        ):
+            keep_in_fp32_modules.extend(model._keep_in_fp32_modules_strict)
+
+        keep_in_fp32_regex = None
+        if keep_in_fp32_modules:
+            # We need to match exact layers, so we add either `.` on each side, or start/end of string
+            keep_in_fp32_regex = re.compile("|".join([rf"((^|\.){module}($|\.))" for module in keep_in_fp32_modules]))
+
+        if hf_quantizer is not None:
+            hf_quantizer.preprocess_model(
+                model=model, device_map=device_map, keep_in_fp32_modules=model._keep_in_fp32_modules, config=config
+            )
+            # We store the original dtype for quantized models as we cannot easily retrieve it
+            # once the weights have been quantized
+            # Note that once you have loaded a quantized model, you can't change its dtype so this will
+            # remain a single source of truth
+            original_dtype = torch_dtype if torch_dtype is not None else torch.get_default_dtype()
+
+            def _assign_original_dtype(module):
+                for child in module.children():
+                    if isinstance(child, PreTrainedModel):
+                        child.config._pre_quantization_dtype = original_dtype
+                    _assign_original_dtype(child)
+
+            config._pre_quantization_dtype = original_dtype
+            _assign_original_dtype(model)
+
+        # Prepare the full device map
+        if device_map is not None:
+            device_map = _get_device_map(model, device_map, max_memory, hf_quantizer, torch_dtype, keep_in_fp32_regex)
+
+        # Finalize model weight initialization
+        if from_tf:
+            model, loading_info = cls._load_from_tf(model, config, checkpoint_files)
+        elif from_flax:
+            model = cls._load_from_flax(model, checkpoint_files)
+        elif from_pt:
+            # restore default dtype
+            if dtype_orig is not None:
+                torch.set_default_dtype(dtype_orig)
+
+            (
+                model,
+                missing_keys,
+                unexpected_keys,
+                mismatched_keys,
+                offload_index,
+                error_msgs,
+            ) = cls._load_pretrained_model(
+                model,
+                state_dict,
+                checkpoint_files,
+                pretrained_model_name_or_path,
+                ignore_mismatched_sizes=ignore_mismatched_sizes,
+                sharded_metadata=sharded_metadata,
+                device_map=device_map,
+                disk_offload_folder=offload_folder,
+                offload_state_dict=offload_state_dict,
+                dtype=torch_dtype,
+                hf_quantizer=hf_quantizer,
+                keep_in_fp32_regex=keep_in_fp32_regex,
+                device_mesh=device_mesh,
+                key_mapping=key_mapping,
+                weights_only=weights_only,
+            )
+
+        # record tp degree the model sharded to
+        model._tp_size = tp_size
+        model._device_mesh = device_mesh
+
+        # make sure token embedding weights are still tied if needed
+        model.tie_weights()
+
+        # Set model in evaluation mode to deactivate DropOut modules by default
+        model.eval()
+
+        # check if using kernels
+        if use_kernels:
+            from kernels import Device, kernelize
+
+            kernelize(model, device=Device(type=model.device.type))
+
+        # If it is a model with generation capabilities, attempt to load generation files (generation config,
+        # custom generate function)
+        if model.can_generate() and generation_config is not None:
+            logger.info("The user-defined `generation_config` will be used to override the default generation config.")
+            model.generation_config = model.generation_config.from_dict(generation_config.to_dict())
+        elif model.can_generate() and pretrained_model_name_or_path is not None:
+            repo_loading_kwargs = {
+                "cache_dir": cache_dir,
+                "force_download": force_download,
+                "proxies": proxies,
+                "local_files_only": local_files_only,
+                "token": token,
+                "revision": revision,
+                "subfolder": subfolder,
+                **kwargs,
+            }
+            # Load generation config
+            try:
+                model.generation_config = GenerationConfig.from_pretrained(
+                    pretrained_model_name_or_path,
+                    _from_auto=from_auto_class,
+                    _from_pipeline=from_pipeline,
+                    **repo_loading_kwargs,
+                )
+            except OSError:
+                logger.info(
+                    "Generation config file not found, using a generation config created from the model config."
+                )
+                pass
+            # Load custom generate function if `pretrained_model_name_or_path` defines it (and override `generate`)
+            if hasattr(model, "load_custom_generate"):
+                try:
+                    custom_generate = model.load_custom_generate(
+                        pretrained_model_name_or_path, trust_remote_code=trust_remote_code, **repo_loading_kwargs
+                    )
+                    model.generate = functools.partial(custom_generate, model=model)
+                except OSError:  # there is no custom generate function
+                    pass
+
+        # Dispatch model with hooks on all devices if necessary (not needed with a tp_plan, so we skip it as it slightly
+        # harm performances)
+        if device_map is not None and device_mesh is None:
+            device_map_kwargs = {
+                "device_map": device_map,
+                "offload_dir": offload_folder,
+                "offload_index": offload_index,
+                "offload_buffers": offload_buffers,
+            }
+            if "skip_keys" in inspect.signature(dispatch_model).parameters:
+                device_map_kwargs["skip_keys"] = model._skip_keys_device_placement
+            # For HQQ method we force-set the hooks for single GPU envs
+            if (
+                "force_hooks" in inspect.signature(dispatch_model).parameters
+                and hf_quantizer is not None
+                and hf_quantizer.quantization_config.quant_method == QuantizationMethod.HQQ
+            ):
+                device_map_kwargs["force_hooks"] = True
+            if (
+                hf_quantizer is not None
+                and hf_quantizer.quantization_config.quant_method == QuantizationMethod.FBGEMM_FP8
+                and isinstance(device_map, dict)
+                and ("cpu" in device_map.values() or "disk" in device_map.values())
+            ):
+                device_map_kwargs["offload_buffers"] = True
+
+            if not is_fsdp_enabled() and not is_deepspeed_zero3_enabled():
+                dispatch_model(model, **device_map_kwargs)
+
+        if hf_quantizer is not None:
+            hf_quantizer.postprocess_model(model, config=config)
+            model.hf_quantizer = hf_quantizer
+
+        if _adapter_model_path is not None:
+            adapter_kwargs["key_mapping"] = key_mapping
+            model.load_adapter(
+                _adapter_model_path,
+                adapter_name=adapter_name,
+                token=token,
+                adapter_kwargs=adapter_kwargs,
+            )
+
+        if output_loading_info:
+            if from_pt:
+                loading_info = {
+                    "missing_keys": missing_keys,
+                    "unexpected_keys": unexpected_keys,
+                    "mismatched_keys": mismatched_keys,
+                    "error_msgs": error_msgs,
+                }
+            elif from_flax:
+                loading_info = None
+            return model, loading_info
+        return model
+
+    @staticmethod
+    def _fix_state_dict_key_on_load(key: str) -> tuple[str, bool]:
+        """Replace legacy parameter names with their modern equivalents. E.g. beta -> bias, gamma -> weight."""
+        # Rename LayerNorm beta & gamma params for some early models ported from Tensorflow (e.g. Bert)
+        # This rename is logged.
+        if key.endswith("LayerNorm.beta"):
+            return key.replace("LayerNorm.beta", "LayerNorm.bias"), True
+        if key.endswith("LayerNorm.gamma"):
+            return key.replace("LayerNorm.gamma", "LayerNorm.weight"), True
+
+        # Rename weight norm parametrizations to match changes across torch versions.
+        # Impacts a number of speech/wav2vec models. e.g. Hubert, Wav2Vec2, and others.
+        # This rename is not logged.
+        if hasattr(nn.utils.parametrizations, "weight_norm"):
+            if key.endswith("weight_g"):
+                return key.replace("weight_g", "parametrizations.weight.original0"), True
+            if key.endswith("weight_v"):
+                return key.replace("weight_v", "parametrizations.weight.original1"), True
+        else:
+            if key.endswith("parametrizations.weight.original0"):
+                return key.replace("parametrizations.weight.original0", "weight_g"), True
+            if key.endswith("parametrizations.weight.original1"):
+                return key.replace("parametrizations.weight.original1", "weight_v"), True
+
+        return key, False
+
+    def _get_key_renaming_mapping(
+        self,
+        checkpoint_keys: list[str],
+        key_mapping: Optional[dict[str, str]] = None,
+        loading_base_model_from_task_state_dict: bool = False,
+        loading_task_model_from_base_state_dict: bool = False,
+    ):
+        """
+        Compute a mapping between the serialized keys on disk `checkpoint_keys`, and the keys that the model
+        that we are loading expects. This is the single entry point for key renaming that will be used during
+        loading.
+        Log if any parameters have been renamed.
+        """
+        prefix = self.base_model_prefix
+        _prefix = f"{prefix}."
+
+        renamed_keys = {}
+        key_renaming_mapping = {}
+        for key in checkpoint_keys:
+            # Class specific rename
+            new_key, has_changed = self._fix_state_dict_key_on_load(key)
+
+            # Optionally map the key according to `key_mapping`
+            if key_mapping is not None:
+                for pattern, replacement in key_mapping.items():
+                    new_key, n_replace = re.subn(pattern, replacement, new_key)
+                    # Early exit of the loop
+                    if n_replace > 0:
+                        has_changed = True
+                        break
+
+            # In this case, we need to add the prefix to the keys, to match them to the expected keys
+            if loading_task_model_from_base_state_dict:
+                new_key = ".".join([prefix, new_key])
+            # In this case we need to remove the prefix from the key to match them to the expected keys, and use
+            # only the keys starting with the prefix
+            elif loading_base_model_from_task_state_dict:
+                if not new_key.startswith(_prefix):
+                    continue
+                new_key = new_key[len(_prefix) :]
+
+            key_renaming_mapping[key] = new_key
+
+            # track gamma/beta rename for logging
+            if has_changed:
+                if key.endswith("LayerNorm.gamma"):
+                    renamed_keys["LayerNorm.gamma"] = (key, new_key)
+                elif key.endswith("LayerNorm.beta"):
+                    renamed_keys["LayerNorm.beta"] = (key, new_key)
+
+        if renamed_keys:
+            warning_msg = f"A pretrained model of type `{self.__class__.__name__}` "
+            warning_msg += "contains parameters that have been renamed internally (a few are listed below but more are present in the model):\n"
+            for old_key, new_key in renamed_keys.values():
+                warning_msg += f"* `{old_key}` -> `{new_key}`\n"
+            warning_msg += "If you are using a model from the Hub, consider submitting a PR to adjust these weights and help future users."
+            logger.info_once(warning_msg)
+
+        return key_renaming_mapping
+
+    @staticmethod
+    def _fix_state_dict_key_on_save(key) -> tuple[str, bool]:
+        """
+        Similar to `_fix_state_dict_key_on_load` allows to define hook for state dict key renaming on model save.
+        Do nothing by default, but can be overridden in particular models.
+        """
+        return key, False
+
+    def _fix_state_dict_keys_on_save(self, state_dict):
+        """
+        Similar to `_fix_state_dict_keys_on_load` allows to define hook for state dict key renaming on model save.
+        Apply `_fix_state_dict_key_on_save` to all keys in `state_dict`.
+        """
+        return {self._fix_state_dict_key_on_save(key)[0]: value for key, value in state_dict.items()}
+
+    @classmethod
+    def _load_pretrained_model(
+        cls,
+        model: "PreTrainedModel",
+        state_dict: Optional[dict],
+        checkpoint_files: Optional[list[str]],
+        pretrained_model_name_or_path: Optional[str],
+        ignore_mismatched_sizes: bool = False,
+        sharded_metadata: Optional[dict] = None,
+        device_map: Optional[dict] = None,
+        disk_offload_folder: Optional[str] = None,
+        offload_state_dict: Optional[bool] = None,
+        dtype: Optional[torch.dtype] = None,
+        hf_quantizer: Optional[HfQuantizer] = None,
+        keep_in_fp32_regex: Optional[re.Pattern] = None,
+        device_mesh: Optional["torch.distributed.device_mesh.DeviceMesh"] = None,
+        key_mapping: Optional[dict[str, str]] = None,
+        weights_only: bool = True,
+    ):
+        # Useful flags
+        is_quantized = hf_quantizer is not None
+        is_hqq_or_quark = is_quantized and hf_quantizer.quantization_config.quant_method in {
+            QuantizationMethod.HQQ,
+            QuantizationMethod.QUARK,
+        }
+        is_hqq_or_bnb = is_quantized and hf_quantizer.quantization_config.quant_method in {
+            QuantizationMethod.HQQ,
+            QuantizationMethod.BITS_AND_BYTES,
+        }
+
+        # Get all the keys of the state dicts that we have to initialize the model
+        if sharded_metadata is not None:
+            original_checkpoint_keys = sharded_metadata["all_checkpoint_keys"]
+        elif state_dict is not None:
+            original_checkpoint_keys = list(state_dict.keys())
+        else:
+            original_checkpoint_keys = list(
+                load_state_dict(checkpoint_files[0], map_location="meta", weights_only=weights_only).keys()
+            )
+
+        # Check if we are in a special state, i.e. loading from a state dict coming from a different architecture
+        prefix = model.base_model_prefix
+        _prefix = f"{prefix}."
+        has_prefix_module = any(s.startswith(prefix) for s in original_checkpoint_keys) if len(prefix) > 0 else False
+        expects_prefix_module = hasattr(model, prefix) if len(prefix) > 0 else False
+        loading_task_model_from_base_state_dict = not has_prefix_module and expects_prefix_module
+        loading_base_model_from_task_state_dict = has_prefix_module and not expects_prefix_module
+
+        # Find the key names that the model expects from the serialized keys
+        key_renaming_mapping = model._get_key_renaming_mapping(
+            original_checkpoint_keys,
+            key_mapping,
+            loading_base_model_from_task_state_dict,
+            loading_task_model_from_base_state_dict,
+        )
+        checkpoint_keys = list(key_renaming_mapping.values())
+
+        # Find missing and unexpected keys from the state dict
+        missing_keys, unexpected_keys = _find_missing_and_unexpected_keys(
+            cls,
+            model,
+            original_checkpoint_keys,
+            checkpoint_keys,
+            loading_base_model_from_task_state_dict,
+            hf_quantizer,
+            device_map,
+        )
+        # Find all the keys with shape mismatch (if we ignore the mismatch, the weights need to be newly initialized the
+        # same way as missing keys)
+        mismatched_keys, mismatched_shapes = _find_mismatched_keys(
+            model,
+            state_dict,
+            checkpoint_files,
+            ignore_mismatched_sizes,
+            key_renaming_mapping,
+            is_quantized,
+            weights_only,
+        )
+
+        # We need to update both the mapping and the list of checkpoint keys to remove the mismatched ones
+        key_renaming_mapping = {k: v for k, v in key_renaming_mapping.items() if v not in mismatched_keys}
+        checkpoint_keys = list(key_renaming_mapping.values())
+
+        # Move missing (and potentially mismatched) keys back to cpu from meta device (because they won't be moved when
+        # loading the weights as they are not in the loaded state dict)
+        model._move_missing_keys_from_meta_to_cpu(missing_keys + mismatched_keys, unexpected_keys, dtype, hf_quantizer)
+
+        # correctly initialize the missing (and potentially mismatched) keys
+        model._initialize_missing_keys(checkpoint_keys, ignore_mismatched_sizes, is_quantized)
+
+        # Set some modules to fp32 if needed
+        if keep_in_fp32_regex is not None:
+            for name, param in model.named_parameters():
+                if keep_in_fp32_regex.search(name):
+                    # param = param.to(torch.float32) does not work here as only in the local scope.
+                    param.data = param.data.to(torch.float32)
+
+        # Make sure we are able to load base models as well as derived models (specific task models, with heads)
+        model_to_load = model
+        # In this case, we load a ForTaskModel with keys from a BaseModel -> only load keys to the BaseModel
+        if loading_task_model_from_base_state_dict:
+            model_to_load = getattr(model, prefix)
+            # Here we need to remove the prefix we added to correctly find missing/unexpected keys, as we will load
+            # in the submodule
+            key_renaming_mapping = {k: v[len(_prefix) :] for k, v in key_renaming_mapping.items()}
+            checkpoint_keys = list(key_renaming_mapping.values())
+            # We need to update the device map as well
+            if device_map is not None:
+                device_map = {k[len(_prefix) :] if k.startswith(_prefix) else k: v for k, v in device_map.items()}
+            # small sanity check: the base model should not contain task-specific head keys
+            task_specific_expected_keys = [s for s in model.state_dict().keys() if not s.startswith(_prefix)]
+            base_model_expected_keys = list(model_to_load.state_dict().keys())
+            if any(
+                key in task_specific_expected_keys and key not in base_model_expected_keys for key in checkpoint_keys
+            ):
+                raise ValueError(
+                    "The state dictionary of the model you are trying to load is corrupted. Are you sure it was "
+                    "properly saved?"
+                )
+
+        # Get reverse key mapping
+        reverse_key_renaming_mapping = {v: k for k, v in key_renaming_mapping.items()}
+
+        is_offloaded_safetensors = False
+        # This offload index if for params explicitly on the "disk" in the device_map
+        disk_offload_index = None
+        disk_only_shard_files = []
+        # Prepare parameters offloading if needed
+        if device_map is not None and "disk" in device_map.values():
+            if offload_state_dict is None:
+                offload_state_dict = True
+            if disk_offload_folder is not None:
+                os.makedirs(disk_offload_folder, exist_ok=True)
+            is_offloaded_safetensors = checkpoint_files is not None and checkpoint_files[0].endswith(".safetensors")
+            if disk_offload_folder is None and not is_offloaded_safetensors:
+                raise ValueError(
+                    "The current `device_map` had weights offloaded to the disk. Please provide an `offload_folder`"
+                    " for them. Alternatively, make sure you have `safetensors` installed if the model you are using"
+                    " offers the weights in this format."
+                )
+            if is_offloaded_safetensors:
+                param_device_map = expand_device_map(device_map, checkpoint_keys)
+                str_dtype = str(dtype).replace("torch.", "") if dtype is not None else "float32"
+                if sharded_metadata is None:
+                    weight_map = dict.fromkeys(checkpoint_keys, checkpoint_files[0])
+                else:
+                    folder = os.path.sep.join(checkpoint_files[0].split(os.path.sep)[:-1])
+                    # Fix the weight map keys according to the key mapping
+                    weight_map = {
+                        key_renaming_mapping[k]: v
+                        for k, v in sharded_metadata["weight_map"].items()
+                        if k in key_renaming_mapping
+                    }
+                    weight_map = {k: os.path.join(folder, v) for k, v in weight_map.items()}
+                    # Find potential checkpoints containing only offloaded weights
+                    disk_only_shard_files = get_disk_only_shard_files(device_map, weight_map)
+                disk_offload_index = {
+                    name: {
+                        "safetensors_file": file,
+                        "weight_name": reverse_key_renaming_mapping[name],
+                        "dtype": str_dtype,
+                    }
+                    for name, file in weight_map.items()
+                    if param_device_map[name] == "disk"
+                }
+            else:
+                disk_offload_index = {}
+
+        # This offload index if for params that are supposed to be on the "cpu", either with or without a device_map
+        # It allows to load parameters one-by-one from the state dict, avoiding a memory peak of 2 x state_dict_size,
+        # i.e. 1x to load it, and 1x to copy it to model
+        cpu_offload_folder = None
+        cpu_offload_index = None
+        if offload_state_dict:
+            cpu_offload_folder = tempfile.mkdtemp()
+            cpu_offload_index = {}
+
+        # To be able to iterate, even if we don't use it if the state_dict is already provided
+        elif state_dict is not None:
+            checkpoint_files = [""]
+
+        # Compute expected model keys
+        expected_keys = list(model_to_load.state_dict().keys())
+        if hf_quantizer is not None:
+            expected_keys = hf_quantizer.update_expected_keys(model_to_load, expected_keys, checkpoint_keys)
+
+        if logger.level >= logging.WARNING:
+            verify_tp_plan(expected_keys, getattr(model_to_load, "_tp_plan", None))
+
+        # Warmup cuda to load the weights much faster on devices
+        if device_map is not None and not is_hqq_or_quark:
+            expanded_device_map = expand_device_map(device_map, expected_keys)
+            caching_allocator_warmup(model_to_load, expanded_device_map, hf_quantizer)
+
+        # Prepare and compatabilize arguments for serial and parallel shard loading
+        args_list = [
+            (
+                shard_file,
+                state_dict,
+                disk_only_shard_files,
+                is_hqq_or_bnb,
+                is_quantized,
+                device_map,
+                hf_quantizer,
+                key_renaming_mapping,
+                weights_only,
+                model_to_load,
+                expected_keys,
+                reverse_key_renaming_mapping,
+                disk_offload_folder,
+                disk_offload_index,
+                cpu_offload_folder,
+                cpu_offload_index,
+                is_offloaded_safetensors,
+                keep_in_fp32_regex,
+                unexpected_keys,
+                device_mesh,
+            )
+            for shard_file in checkpoint_files
+        ]
+
+        error_msgs = []
+
+        if (
+            os.environ.get("HF_ENABLE_PARALLEL_LOADING", "").upper() in ENV_VARS_TRUE_VALUES
+            and not is_deepspeed_zero3_enabled()
+        ):
+            _error_msgs, disk_offload_index, cpu_offload_index = load_shard_files_with_threadpool(args_list)
+            error_msgs += _error_msgs
+        else:
+            if len(args_list) > 1:
+                args_list = logging.tqdm(args_list, desc="Loading checkpoint shards")
+
+            for args in args_list:
+                _error_msgs, disk_offload_index, cpu_offload_index = load_shard_file(args)
+                error_msgs += _error_msgs
+
+        # Adjust offloaded weights name and save if needed
+        if disk_offload_index is not None and len(disk_offload_index) > 0:
+            if loading_task_model_from_base_state_dict:
+                # We need to add the prefix of the base model
+                prefix = cls.base_model_prefix
+                if not is_offloaded_safetensors:
+                    for weight_name in disk_offload_index:
+                        shutil.move(
+                            os.path.join(disk_offload_folder, f"{weight_name}.dat"),
+                            os.path.join(disk_offload_folder, f"{prefix}.{weight_name}.dat"),
+                        )
+                disk_offload_index = {f"{prefix}.{key}": value for key, value in disk_offload_index.items()}
+            if not is_offloaded_safetensors:
+                save_offload_index(disk_offload_index, disk_offload_folder)
+                disk_offload_index = None
+
+        # one-at-a-time param loading for the cpu offloaded params
+        if offload_state_dict:
+            # Load back temporarily offloaded state dict
+            load_offloaded_weights(model_to_load, cpu_offload_index, cpu_offload_folder)
+            shutil.rmtree(cpu_offload_folder)
+
+        if hf_quantizer is not None:
+            missing_keys = hf_quantizer.update_missing_keys_after_loading(model_to_load, missing_keys, prefix)
+
+        # Post-processing for tensor parallelism
+        if device_mesh is not None:
+            # When using TP, the device map is a single device for all parameters
+            tp_device = list(device_map.values())[0]
+            # This is needed for the RotaryEmbedding, which was not initialized on the correct device as it is
+            # not part of the state_dict (persistent=False)
+            for buffer in model.buffers():
+                if buffer.device != tp_device:
+                    buffer.data = buffer.to(tp_device)
+
+            # In this case, the top-most task module weights were not moved to device and parallelized as they
+            # were not part of the loaded weights: do it now
+            if loading_task_model_from_base_state_dict:
+                parameters_to_initialize = {
+                    name: param for name, param in model.named_parameters() if not name.startswith(prefix)
+                }
+                for name, param in parameters_to_initialize.items():
+                    # If it is still on meta here, it means that it's a tied weight that will be tied later anyway -> skip it
+                    if param.device.type == "meta":
+                        continue
+                    # Shard the param
+                    to_contiguous, casting_dtype = _infer_parameter_dtype(model, name, param, keep_in_fp32_regex)
+                    shard_and_distribute_module(
+                        model,
+                        param.to(tp_device),
+                        param,
+                        name,
+                        casting_dtype,
+                        to_contiguous,
+                        device_mesh.get_local_rank(),
+                        device_mesh,
+                    )
+
+        # All potential warnings/infos
+        if len(error_msgs) > 0:
+            error_msg = "\n\t".join(error_msgs)
+            if "size mismatch" in error_msg:
+                error_msg += (
+                    "\n\tYou may consider adding `ignore_mismatched_sizes=True` in the model `from_pretrained` method."
+                )
+            raise RuntimeError(f"Error(s) in loading state_dict for {model.__class__.__name__}:\n\t{error_msg}")
+        if len(unexpected_keys) > 0:
+            archs = [] if model.config.architectures is None else model.config.architectures
+            warner = logger.warning if model.__class__.__name__ in archs else logger.info
+            warner(
+                f"Some weights of the model checkpoint at {pretrained_model_name_or_path} were not used when"
+                f" initializing {model.__class__.__name__}: {unexpected_keys}\n- This IS expected if you are"
+                f" initializing {model.__class__.__name__} from the checkpoint of a model trained on another task or"
+                " with another architecture (e.g. initializing a BertForSequenceClassification model from a"
+                " BertForPreTraining model).\n- This IS NOT expected if you are initializing"
+                f" {model.__class__.__name__} from the checkpoint of a model that you expect to be exactly identical"
+                " (initializing a BertForSequenceClassification model from a BertForSequenceClassification model)."
+            )
+        else:
+            logger.info(f"All model checkpoint weights were used when initializing {model.__class__.__name__}.\n")
+        if len(missing_keys) > 0:
+            logger.warning(
+                f"Some weights of {model.__class__.__name__} were not initialized from the model checkpoint at"
+                f" {pretrained_model_name_or_path} and are newly initialized: {missing_keys}\nYou should probably"
+                " TRAIN this model on a down-stream task to be able to use it for predictions and inference."
+            )
+        elif len(mismatched_keys) == 0:
+            logger.info(
+                f"All the weights of {model.__class__.__name__} were initialized from the model checkpoint at"
+                f" {pretrained_model_name_or_path}.\nIf your task is similar to the task the model of the checkpoint"
+                f" was trained on, you can already use {model.__class__.__name__} for predictions without further"
+                " training."
+            )
+        if len(mismatched_keys) > 0:
+            mismatched_warning = "\n".join(
+                [
+                    f"- {key}: found shape {shape1} in the checkpoint and {shape2} in the model instantiated"
+                    for key, (shape1, shape2) in zip(mismatched_keys, mismatched_shapes)
+                ]
+            )
+            logger.warning(
+                f"Some weights of {model.__class__.__name__} were not initialized from the model checkpoint at"
+                f" {pretrained_model_name_or_path} and are newly initialized because the shapes did not"
+                f" match:\n{mismatched_warning}\nYou should probably TRAIN this model on a down-stream task to be able"
+                " to use it for predictions and inference."
+            )
+
+        return model, missing_keys, unexpected_keys, mismatched_keys, disk_offload_index, error_msgs
+
+    @classmethod
+    def _load_from_tf(cls, model, config, checkpoint_files):
+        if checkpoint_files[0].endswith(".index"):
+            # Load from a TensorFlow 1.X checkpoint - provided by original authors
+            model = cls.load_tf_weights(model, config, checkpoint_files[0][:-6])  # Remove the '.index'
+            loading_info = None
+        else:
+            # Load from our TensorFlow 2.0 checkpoints
+            try:
+                from .modeling_tf_pytorch_utils import load_tf2_checkpoint_in_pytorch_model
+
+                model, loading_info = load_tf2_checkpoint_in_pytorch_model(
+                    model, checkpoint_files[0], allow_missing_keys=True, output_loading_info=True
+                )
+            except ImportError:
+                logger.error(
+                    "Loading a TensorFlow model in PyTorch, requires both PyTorch and TensorFlow to be installed."
+                    " Please see https://pytorch.org/ and https://www.tensorflow.org/install/ for installation"
+                    " instructions."
+                )
+                raise
+        return model, loading_info
+
+    @classmethod
+    def _load_from_flax(cls, model, checkpoint_files):
+        try:
+            from .modeling_flax_pytorch_utils import load_flax_checkpoint_in_pytorch_model
+
+            model = load_flax_checkpoint_in_pytorch_model(model, checkpoint_files[0])
+        except ImportError:
+            logger.error(
+                "Loading a Flax model in PyTorch, requires both PyTorch and Flax to be installed. Please see"
+                " https://pytorch.org/ and https://flax.readthedocs.io/en/latest/installation.html for"
+                " installation instructions."
+            )
+            raise
+        return model
+
+    def retrieve_modules_from_names(self, names, add_prefix=False, remove_prefix=False):
+        module_keys = {".".join(key.split(".")[:-1]) for key in names}
+
+        # torch.nn.ParameterList is a special case where two parameter keywords
+        # are appended to the module name, *e.g.* bert.special_embeddings.0
+        module_keys = module_keys.union(
+            {".".join(key.split(".")[:-2]) for key in names if len(key) > 0 and key[-1].isdigit()}
+        )
+
+        retrieved_modules = []
+        # retrieve all modules that has at least one missing weight name
+        for name, module in self.named_modules():
+            if remove_prefix:
+                _prefix = f"{self.base_model_prefix}."
+                name = name[len(_prefix) :] if name.startswith(_prefix) else name
+            elif add_prefix:
+                name = ".".join([self.base_model_prefix, name]) if len(name) > 0 else self.base_model_prefix
+
+            if name in module_keys:
+                retrieved_modules.append(module)
+
+        return retrieved_modules
+
+    @classmethod
+    def register_for_auto_class(cls, auto_class="AutoModel"):
+        """
+        Register this class with a given auto class. This should only be used for custom models as the ones in the
+        library are already mapped with an auto class.
+
+
+
+        Args:
+            auto_class (`str` or `type`, *optional*, defaults to `"AutoModel"`):
+                The auto class to register this new model with.
+        """
+        if not isinstance(auto_class, str):
+            auto_class = auto_class.__name__
+
+        import transformers.models.auto as auto_module
+
+        if not hasattr(auto_module, auto_class):
+            raise ValueError(f"{auto_class} is not a valid auto class.")
+
+        cls._auto_class = auto_class
+
+    def to_bettertransformer(self) -> "PreTrainedModel":
+        """
+        Converts the model to use [PyTorch's native attention
+        implementation](https://pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html), integrated to
+        Transformers through [Optimum library](https://huggingface.co/docs/optimum/bettertransformer/overview). Only a
+        subset of all Transformers models are supported.
+
+        PyTorch's attention fastpath allows to speed up inference through kernel fusions and the use of [nested
+        tensors](https://pytorch.org/docs/stable/nested.html). Detailed benchmarks can be found in [this blog
+        post](https://medium.com/pytorch/bettertransformer-out-of-the-box-performance-for-huggingface-transformers-3fbe27d50ab2).
+
+        Returns:
+            [`PreTrainedModel`]: The model converted to BetterTransformer.
+        """
+        if not is_optimum_available():
+            raise ImportError("The package `optimum` is required to use Better Transformer.")
+
+        from optimum.version import __version__ as optimum_version
+
+        if version.parse(optimum_version) < version.parse("1.7.0"):
+            raise ImportError(
+                f"Please install optimum>=1.7.0 to use Better Transformer. The version {optimum_version} was found."
+            )
+
+        from optimum.bettertransformer import BetterTransformer
+
+        return BetterTransformer.transform(self)
+
+    def reverse_bettertransformer(self):
+        """
+        Reverts the transformation from [`~PreTrainedModel.to_bettertransformer`] so that the original modeling is
+        used, for example in order to save the model.
+
+        Returns:
+            [`PreTrainedModel`]: The model converted back to the original modeling.
+        """
+        if not is_optimum_available():
+            raise ImportError("The package `optimum` is required to use Better Transformer.")
+
+        from optimum.version import __version__ as optimum_version
+
+        if version.parse(optimum_version) < version.parse("1.7.0"):
+            raise ImportError(
+                f"Please install optimum>=1.7.0 to use Better Transformer. The version {optimum_version} was found."
+            )
+
+        from optimum.bettertransformer import BetterTransformer
+
+        return BetterTransformer.reverse(self)
+
+    def warn_if_padding_and_no_attention_mask(self, input_ids, attention_mask):
+        """
+        Shows a one-time warning if the input_ids appear to contain padding and no attention mask was given.
+        """
+
+        # Skip the check during tracing.
+        if is_torch_fx_proxy(input_ids) or torch.jit.is_tracing() or is_torchdynamo_compiling():
+            return
+
+        if (attention_mask is not None) or (self.config.pad_token_id is None):
+            return
+
+        # Check only the first and last input IDs to reduce overhead.
+        if self.config.pad_token_id in input_ids[:, [-1, 0]]:
+            warn_string = (
+                "We strongly recommend passing in an `attention_mask` since your input_ids may be padded. See "
+                "https://huggingface.co/docs/transformers/troubleshooting"
+                "#incorrect-output-when-padding-tokens-arent-masked."
+            )
+
+            # If the pad token is equal to either BOS, EOS, or SEP, we do not know whether the user should use an
+            # attention_mask or not. In this case, we should still show a warning because this is a rare case.
+            if (
+                (self.config.bos_token_id is not None and self.config.bos_token_id == self.config.pad_token_id)
+                or (self.config.eos_token_id is not None and self.config.eos_token_id == self.config.pad_token_id)
+                or (self.config.sep_token_id is not None and self.config.sep_token_id == self.config.pad_token_id)
+            ):
+                warn_string += (
+                    f"\nYou may ignore this warning if your `pad_token_id` ({self.config.pad_token_id}) is identical "
+                    f"to the `bos_token_id` ({self.config.bos_token_id}), `eos_token_id` ({self.config.eos_token_id}), "
+                    f"or the `sep_token_id` ({self.config.sep_token_id}), and your input is not padded."
+                )
+
+            logger.warning_once(warn_string)
+
+    @property
+    def supports_tp_plan(self):
+        """
+        Returns whether the model has a tensor parallelism plan.
+        """
+        if self._tp_plan is not None:
+            return True
+        # Check if base model has a TP plan
+        if getattr(self.base_model, "_tp_plan", None) is not None:
+            return True
+        return False
+
+    @property
+    def tp_size(self):
+        """
+        Returns the model's tensor parallelism degree.
+        """
+        # if None, the model didn't undergo tensor parallel sharding
+        return self._tp_size
+
+    @property
+    def supports_pp_plan(self):
+        if self._pp_plan is not None:
+            return True
+        # Check if base model has PP plan
+        if getattr(self.base_model, "_pp_plan", None) is not None:
+            return True
+        return False
+
+    @property
+    def loss_function(self):
+        if hasattr(self, "_loss_function"):
+            return self._loss_function
+
+        loss_type = getattr(self, "loss_type", None)
+
+        if loss_type is None or loss_type not in LOSS_MAPPING:
+            logger.warning_once(
+                f"`loss_type={loss_type}` was set in the config but it is unrecognised."
+                f"Using the default loss: `ForCausalLMLoss`."
+            )
+            loss_type = "ForCausalLM"
+        return LOSS_MAPPING[loss_type]
+
+    @loss_function.setter
+    def loss_function(self, value):
+        self._loss_function = value
+
+    def get_compiled_call(self, compile_config: Optional[CompileConfig]) -> Callable:
+        """Return a `torch.compile`'d version of `self.__call__`. This is useful to dynamically choose between
+        non-compiled/compiled `forward` during inference, especially to switch between prefill (where we don't
+        want to use compiled version to avoid recomputing the graph with new shapes) and iterative decoding
+        (where we want the speed-ups of compiled version with static shapes)."""
+        # Only reset it if not present or different from previous config
+        if "llama4" in self.config.model_type:  # TODO try to enable for FULL COMPILE HYBRID CACHE SUPPORT
+            return self.__call__
+        compile_config = compile_config or CompileConfig()
+        default_config = getattr(self.generation_config, "compile_config", None) or CompileConfig()
+        if (
+            not hasattr(self, "_compiled_call")
+            or getattr(self, "_last_compile_config", default_config) != compile_config
+        ):
+            self._last_compile_config = compile_config
+            self._compiled_call = torch.compile(self.__call__, **compile_config.to_dict())
+        return self._compiled_call
+
+    @classmethod
+    def is_backend_compatible(cls):
+        return cls._supports_attention_backend
+
+    def _move_missing_keys_from_meta_to_cpu(
+        self,
+        missing_keys: list[str],
+        unexpected_keys: list[str],
+        dtype: Optional[torch.dtype],
+        hf_quantizer: Optional[HfQuantizer],
+    ) -> "PreTrainedModel":
+        """Move the missing keys (keys that are part of the model parameters, but were NOT found in the loaded state dicts) back
+        from meta device to cpu.
+        """
+        is_quantized = hf_quantizer is not None
+
+        # In this case we need to move everything back
+        if is_fsdp_enabled() and not is_local_dist_rank_0() and not is_quantized:
+            # We only do it for the parameters, as the buffers are not initialized on the meta device by default
+            for key, param in self.named_parameters():
+                value = torch.empty_like(param, dtype=dtype, device="cpu")
+                _load_parameter_into_model(self, key, value)
+            return
+
+        model_state_dict = self.state_dict()
+        for key in missing_keys:
+            param = model_state_dict[key]
+            # Buffers are not initialized on the meta device, so we still need this check to avoid overwriting them
+            if param.device == torch.device("meta"):
+                value = torch.empty_like(param, dtype=dtype, device="cpu")
+                if (
+                    not is_quantized
+                    or (getattr(hf_quantizer, "requires_parameters_quantization", False))
+                    or not hf_quantizer.check_quantized_param(self, param_value=value, param_name=key, state_dict={})
+                ):
+                    _load_parameter_into_model(self, key, value)
+                else:
+                    hf_quantizer.create_quantized_param(self, value, key, "cpu", model_state_dict, unexpected_keys)
+
+    def _initialize_missing_keys(
+        self,
+        loaded_keys: list[str],
+        ignore_mismatched_sizes: bool,
+        is_quantized: bool,
+    ) -> "PreTrainedModel":
+        """Initialize the missing keys (keys that are part of the model parameters, but were NOT found in the loaded state dicts), according to
+        `_initialize_weights`. Indeed, since the corresponding weights are missing from the state dict, they will not be replaced and need to
+        be initialized correctly (i.e. weight initialization distribution).
+        Also take care of setting the `_is_hf_initialized` flag for keys that are not missing.
+        """
+        if not ignore_mismatched_sizes:
+            not_initialized_submodules = set_initialized_submodules(self, loaded_keys)
+            # If we're about to tie the output embeds to the input embeds we don't need to init them
+            if (
+                hasattr(self.config.get_text_config(decoder=True), "tie_word_embeddings")
+                and self.config.get_text_config(decoder=True).tie_word_embeddings
+            ):
+                output_embeddings = self.get_output_embeddings()
+                if output_embeddings is not None:
+                    # Still need to initialize if there is a bias term since biases are not tied.
+                    if not hasattr(output_embeddings, "bias") or output_embeddings.bias is None:
+                        output_embeddings._is_hf_initialized = True
+        else:
+            not_initialized_submodules = dict(self.named_modules())
+        # This will only initialize submodules that are not marked as initialized by the line above.
+        if is_deepspeed_zero3_enabled() and not is_quantized:
+            import deepspeed
+
+            not_initialized_parameters = list(
+                set(
+                    itertools.chain.from_iterable(
+                        submodule.parameters(recurse=False) for submodule in not_initialized_submodules.values()
+                    )
+                )
+            )
+            with deepspeed.zero.GatheredParameters(not_initialized_parameters, modifier_rank=0):
+                self.initialize_weights()
+        else:
+            self.initialize_weights()
+
+    def get_parameter_or_buffer(self, target: str):
+        """
+        Return the parameter or buffer given by `target` if it exists, otherwise throw an error. This combines
+        `get_parameter()` and `get_buffer()` in a single handy function. If the target is an `_extra_state` attribute,
+        it will return the extra state provided by the module. Note that it only work if `target` is a leaf of the model.
+        """
+        try:
+            return self.get_parameter(target)
+        except AttributeError:
+            pass
+        try:
+            return self.get_buffer(target)
+        except AttributeError:
+            pass
+        module, param_name = get_module_from_name(self, target)
+        if (
+            param_name == "_extra_state"
+            and getattr(module.__class__, "get_extra_state", torch.nn.Module.get_extra_state)
+            is not torch.nn.Module.get_extra_state
+        ):
+            return module.get_extra_state()
+
+        raise AttributeError(f"`{target}` is neither a parameter, buffer, nor extra state.")
+
+
+PreTrainedModel.push_to_hub = copy_func(PreTrainedModel.push_to_hub)
+if PreTrainedModel.push_to_hub.__doc__ is not None:
+    PreTrainedModel.push_to_hub.__doc__ = PreTrainedModel.push_to_hub.__doc__.format(
+        object="model", object_class="AutoModel", object_files="model file"
+    )
+
+
+def unwrap_model(model: nn.Module, recursive: bool = False) -> nn.Module:
+    """
+    Recursively unwraps a model from potential containers (as used in distributed training).
+
+    Args:
+        model (`torch.nn.Module`): The model to unwrap.
+        recursive (`bool`, *optional*, defaults to `False`):
+            Whether to recursively extract all cases of `module.module` from `model` as well as unwrap child sublayers
+            recursively, not just the top-level distributed containers.
+    """
+    # Use accelerate implementation if available (should always be the case when using torch)
+    # This is for pytorch, as we also have to handle things like dynamo
+    if is_accelerate_available():
+        kwargs = {}
+        if recursive:
+            if not is_accelerate_available("0.29.0"):
+                raise RuntimeError(
+                    "Setting `recursive=True` to `unwrap_model` requires `accelerate` v0.29.0. Please upgrade your version of accelerate"
+                )
+            else:
+                kwargs["recursive"] = recursive
+        return extract_model_from_parallel(model, **kwargs)
+    else:
+        # since there could be multiple levels of wrapping, unwrap recursively
+        if hasattr(model, "module"):
+            return unwrap_model(model.module)
+        else:
+            return model
+
+
+def expand_device_map(device_map, param_names):
+    """
+    Expand a device map to return the correspondence parameter name to device.
+    """
+    new_device_map = {}
+    for module, device in device_map.items():
+        new_device_map.update(
+            {p: device for p in param_names if p == module or p.startswith(f"{module}.") or module == ""}
+        )
+    return new_device_map
+
+
+def is_accelerator_device(device: Union[str, int, torch.device]) -> bool:
+    """Check if the device is an accelerator. We need to function, as device_map can be "disk" as well, which is not
+    a proper `torch.device`.
+    """
+    if device == "disk":
+        return False
+    else:
+        return torch.device(device).type not in ["meta", "cpu"]
+
+
+def caching_allocator_warmup(model: PreTrainedModel, expanded_device_map: dict, hf_quantizer: Optional[HfQuantizer]):
+    """This function warm-ups the caching allocator based on the size of the model tensors that will reside on each
+    device. It allows to have one large call to Malloc, instead of recursively calling it later when loading
+    the model, which is actually the loading speed bottleneck.
+    Calling this function allows to cut the model loading time by a very large margin.
+
+    A few facts related to loading speed (taking into account the use of this function):
+    - When loading a model the first time, it is usually slower than the subsequent times, because the OS is very likely
+    to cache the different state dicts (if enough resources/RAM are available)
+    - Trying to force the OS to cache the files in advance (by e.g. accessing a small portion of them) is really hard,
+    and not a good idea in general as this is low level OS optimizations that depend on resource usage anyway
+    - As of 18/03/2025, loading a Llama 70B model with TP takes ~1 min without file cache, and ~13s with full file cache.
+    The baseline, i.e. only loading the tensor shards on device and adjusting dtype (i.e. copying them) is ~5s with full cache.
+    These numbers are reported for TP on 4 H100 GPUs.
+    - It is useless to pre-allocate more than the model size in this function (i.e. using an `allocation_factor` > 1) as
+    cudaMalloc is not a bottleneck at all anymore
+    - Loading speed bottleneck is now almost only tensor copy (i.e. changing the dtype) and moving the tensors to the devices.
+    However, we cannot really improve on those aspects obviously, as the data needs to be moved/copied in the end.
+    """
+    factor = 2 if hf_quantizer is None else hf_quantizer.get_cuda_warm_up_factor()
+
+    # Remove disk, cpu and meta devices, and cast to proper torch.device
+    accelerator_device_map = {
+        param: torch.device(device) for param, device in expanded_device_map.items() if is_accelerator_device(device)
+    }
+    if not len(accelerator_device_map):
+        return
+
+    tp_plan_regex = (
+        re.compile("|".join([re.escape(plan) for plan in model._tp_plan]))
+        if _torch_distributed_available and torch.distributed.is_initialized()
+        else None
+    )
+    total_byte_count = defaultdict(lambda: 0)
+    for param_name, device in accelerator_device_map.items():
+        param = model.get_parameter_or_buffer(param_name)
+        # The dtype of different parameters may be different with composite models or `keep_in_fp32_modules`
+        param_byte_count = param.numel() * param.element_size()
+
+        if tp_plan_regex is not None:
+            generic_name = re.sub(r"\.\d+\.", ".*.", param_name)
+            param_byte_count //= torch.distributed.get_world_size() if tp_plan_regex.search(generic_name) else 1
+
+        total_byte_count[device] += param_byte_count
+
+    # This will kick off the caching allocator to avoid having to Malloc afterwards
+    for device, byte_count in total_byte_count.items():
+        if device.type == "cuda":
+            index = device.index if device.index is not None else torch.cuda.current_device()
+            device_memory = torch.cuda.mem_get_info(index)[0]
+            # Allow up to (max device memory - 1.2 GiB) in resource-constrained hardware configurations. Trying to reserve more
+            # than that amount might sometimes lead to unnecessary cuda OOM, if the last parameter to be loaded on the device is large,
+            # and the remaining reserved memory portion is smaller than the param size -> torch will then try to fully re-allocate all
+            # the param size, instead of using the remaining reserved part, and allocating only the difference, which can lead
+            # to OOM. See https://github.com/huggingface/transformers/issues/37436#issuecomment-2808982161 for more details.
+            # Note that we use an absolute value instead of device proportion here, as a 8GiB device could still allocate too much
+            # if using e.g. 90% of device size, while a 140GiB device would allocate too little
+            byte_count = min(byte_count, max(0, int(device_memory - 1.2 * 1024**3)))
+            # If there is *unused* reserved cuda memory, we can skip/reduce the allocation.
+            unused_memory = torch.cuda.memory_reserved(index) - torch.cuda.memory_allocated(index)
+            byte_count = max(0, byte_count - unused_memory)
+        # Allocate memory
+        _ = torch.empty(byte_count // factor, dtype=torch.float16, device=device, requires_grad=False)
+
+
+def get_disk_only_shard_files(device_map, weight_map):
+    """
+    Returns the list of shard files containing only weights offloaded to disk.
+    """
+    files_content = collections.defaultdict(list)
+    for weight_name, filename in weight_map.items():
+        while len(weight_name) > 0 and weight_name not in device_map:
+            weight_name = ".".join(weight_name.split(".")[:-1])
+        files_content[filename].append(device_map[weight_name])
+
+    return [fname for fname, devices in files_content.items() if set(devices) == {"disk"}]
+
+
+class AttentionInterface(GeneralInterface):
+    """
+    Dict-like object keeping track of allowed attention functions. You can easily add a new attention function
+    with a call to `register()`. If a model needs to locally overwrite an existing attention function, say `sdpa`,
+    it needs to declare a new instance of this class inside the `modeling_<model>.py`, and declare it on that instance.
+    """
+
+    # Class instance object, so that a call to `register` can be reflected into all other files correctly, even if
+    # a new instance is created (in order to locally override a given function)
+    _global_mapping = {
+        "flash_attention_3": flash_attention_forward,
+        "flash_attention_2": flash_attention_forward,
+        "flex_attention": flex_attention_forward,
+        "paged_attention": paged_attention_forward,
+        "sdpa": sdpa_attention_forward,
+        "sdpa_paged": sdpa_attention_paged_forward,
+        "eager_paged": eager_paged_attention_forward,
+    }
+
+
+# Global AttentionInterface shared by all models which do not need to overwrite any of the existing ones
+ALL_ATTENTION_FUNCTIONS: AttentionInterface = AttentionInterface()
+
+
+class PreTrainedAudioTokenizerBase(PreTrainedModel):
+    """
+    Class that additionally defines the behavior of any `audio_tokenizer` to be added.
+    Characteristic for any of them:
+        1. Encode raw audio into discrete audio codebooks (with x channels)
+        2. Decode from discrete audio codebooks back to raw audio
+    It is possible that they can decode in different ways given a different representation
+    but they are forced to support 2. nonetheless, e.g. see `DAC`.
+    """
+
+    @abstractmethod
+    def encode(self, input_values: torch.Tensor, *args, **kwargs):
+        """
+        Encode raw audio retrieved from a respective `FeatureExtractor` into discrete audio codebooks (with x channels)
+        """
+        pass
+
+    @abstractmethod
+    def decode(self, audio_codes: torch.Tensor, *args, **kwargs):
+        """Decode from discrete audio codebooks back to raw audio"""
+        pass
+"""
+Dataset loaders for NAS training
+
+Character-level language modeling on Python code
+"""
+
+from dataclasses import dataclass
+from typing import Tuple, Optional
+import torch
+from torch.utils.data import Dataset, DataLoader
+
+
+@dataclass
+class CodeCharDatasetConfig:
+    """Configuration for character-level code dataset"""
+    train_path: str
+    val_path: str
+    seq_len: int = 256
+    batch_size: int = 32
+
+
+class CodeCharVocab:
+    """
+    Character-level vocabulary
+
+    Builds vocabulary from training text only (no leakage)
+    """
+
+    def __init__(self, text: str):
+        chars = sorted(list(set(text)))
+        self.stoi = {ch: i for i, ch in enumerate(chars)}
+        self.itos = {i: ch for ch, i in self.stoi.items()}
+        self.vocab_size = len(chars)
+
+        print(f"[VOCAB] Built vocabulary: {self.vocab_size} unique characters")
+        print(f"[VOCAB] Sample chars: {chars[:20]}")
+
+    def encode(self, s: str) -> list:
+        """Encode string to list of integers"""
+        return [self.stoi.get(c, 0) for c in s]
+
+    def decode(self, ids: list) -> str:
+        """Decode list of integers to string"""
+        return ''.join([self.itos.get(i, '?') for i in ids])
+
+
+class CodeCharDataset(Dataset):
+    """
+    Character-level code dataset
+
+    Returns consecutive sequences of characters for language modeling
+    """
+
+    def __init__(self, path: str, seq_len: int, vocab: CodeCharVocab):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                text = f.read()
+        except UnicodeDecodeError:
+            # Fallback to latin-1 if utf-8 fails
+            with open(path, 'r', encoding='latin-1') as f:
+                text = f.read()
+
+        ids = vocab.encode(text)
+        self.ids = torch.tensor(ids, dtype=torch.long)
+        self.seq_len = seq_len
+
+        print(f"[DATASET] Loaded {path}: {len(text)} chars, {len(ids)} tokens")
+
+    def __len__(self) -> int:
+        return max(0, len(self.ids) - self.seq_len - 1)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns:
+            x: input sequence (seq_len,)
+            y: target sequence (seq_len,)
+        """
+        x = self.ids[idx:idx + self.seq_len]
+        y = self.ids[idx + 1:idx + self.seq_len + 1]
+        return x, y
+
+
+def build_code_char_loaders(
+    cfg: CodeCharDatasetConfig
+) -> Tuple[DataLoader, DataLoader, CodeCharVocab]:
+    """
+    Build train and validation data loaders
+
+    Args:
+        cfg: Dataset configuration
+
+    Returns:
+        (train_loader, val_loader, vocab)
+    """
+    print(f"\n[DATA] Building data loaders...")
+    print(f"  Train: {cfg.train_path}")
+    print(f"  Val: {cfg.val_path}")
+    print(f"  Seq len: {cfg.seq_len}")
+    print(f"  Batch size: {cfg.batch_size}")
+
+    # Build vocabulary from train set only
+    try:
+        with open(cfg.train_path, 'r', encoding='utf-8') as f:
+            train_text = f.read()
+    except UnicodeDecodeError:
+        with open(cfg.train_path, 'r', encoding='latin-1') as f:
+            train_text = f.read()
+
+    vocab = CodeCharVocab(train_text)
+
+    # Create datasets
+    train_ds = CodeCharDataset(cfg.train_path, cfg.seq_len, vocab)
+    val_ds = CodeCharDataset(cfg.val_path, cfg.seq_len, vocab)
+
+    # Create dataloaders
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=cfg.batch_size,
+        shuffle=True,
+        num_workers=0,  # Windows compatibility
+        pin_memory=True
+    )
+
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=cfg.batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=True
+    )
+
+    print(f"[DATA] Train batches: {len(train_loader)}")
+    print(f"[DATA] Val batches: {len(val_loader)}")
+
+    return train_loader, val_loader, vocab
+
+
+if __name__ == "__main__":
+    # Test
+    print("="*60)
+    print("Dataset Test")
+    print("="*60)
+
+    cfg = CodeCharDatasetConfig(
+        train_path="../data/code_char/train.txt",
+        val_path="../data/code_char/val.txt",
+        seq_len=128,
+        batch_size=4
+    )
+
+    train_loader, val_loader, vocab = build_code_char_loaders(cfg)
+
+    # Test one batch
+    x, y = next(iter(train_loader))
+    print(f"\nBatch shapes:")
+    print(f"  x: {x.shape}")
+    print(f"  y: {y.shape}")
+
+    # Decode first sequence
+    sample_text = vocab.decode(x[0].tolist())
+    print(f"\nSample input (first 100 chars):")
+    print(f"  {sample_text[:100]}")
+
+    print("\n" + "="*60)
+    print("Dataset test passed!")
+    print("="*60)
+"""
+NAS Evaluator - アーキテクチャの評価システム
+
+評価指標:
+- Accuracy (HumanEval Pass@1)
+- Model Size (MB)
+- Inference Latency (ms)
+- FLOPs
+"""
+
+from typing import Dict, List, Tuple, Optional
+import time
+import torch
+import torch.nn as nn
+from dataclasses import dataclass
+import json
+from pathlib import Path
+
+from search_space import ArchitectureConfig
+
+
+@dataclass
+class EvaluationResult:
+    """評価結果"""
+
+    # Metrics
+    accuracy: float  # 0.0 to 1.0
+    model_size_mb: float
+    latency_ms: float
+    flops: int
+
+    # Metadata
+    architecture: ArchitectureConfig
+    training_time_minutes: float
+    early_stopped: bool = False
+
+    # Fitness score (weighted combination)
+    fitness: float = 0.0
+
+    def compute_fitness(
+        self,
+        accuracy_weight: float = 0.5,
+        size_weight: float = 0.3,
+        latency_weight: float = 0.2
+    ) -> float:
+        """
+        適応度スコアの計算
+
+        目標:
+        - 高精度 (accuracy → 1.0)
+        - 小サイズ (size → 0 MB, but realistic target: 50-100MB)
+        - 低レイテンシ (latency → 0 ms, but realistic: < 10ms)
+        """
+        # Normalize accuracy (0-1, higher is better)
+        accuracy_score = self.accuracy
+
+        # Normalize size (0-1, lower is better)
+        # Target: 50-100MB, penalize above 200MB
+        target_size = 75.0  # MB
+        max_size = 200.0  # MB
+        if self.model_size_mb <= target_size:
+            size_score = 1.0
+        elif self.model_size_mb >= max_size:
+            size_score = 0.0
+        else:
+            size_score = 1.0 - (self.model_size_mb - target_size) / (max_size - target_size)
+
+        # Normalize latency (0-1, lower is better)
+        # Target: < 10ms, penalize above 50ms
+        target_latency = 10.0  # ms
+        max_latency = 50.0  # ms
+        if self.latency_ms <= target_latency:
+            latency_score = 1.0
+        elif self.latency_ms >= max_latency:
+            latency_score = 0.0
+        else:
+            latency_score = 1.0 - (self.latency_ms - target_latency) / (max_latency - target_latency)
+
+        # Weighted sum
+        fitness = (
+            accuracy_weight * accuracy_score +
+            size_weight * size_score +
+            latency_weight * latency_score
+        )
+
+        self.fitness = fitness
+        return fitness
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary"""
+        return {
+            "accuracy": self.accuracy,
+            "model_size_mb": self.model_size_mb,
+            "latency_ms": self.latency_ms,
+            "flops": self.flops,
+            "training_time_minutes": self.training_time_minutes,
+            "early_stopped": self.early_stopped,
+            "fitness": self.fitness,
+            "architecture": self.architecture.to_dict()
+        }
+
+
+class Evaluator:
+    """
+    アーキテクチャ評価器
+
+    評価戦略:
+    1. 小規模評価（1000サンプル、5分）- スクリーニング
+    2. 中規模評価（10000サンプル、20分）- 有望候補の選定
+    3. フル評価（100000サンプル、60分）- 最終評価
+    """
+
+    def __init__(
+        self,
+        dataset_name: str = "code_dataset",
+        device: str = "cuda:0",
+        log_dir: str = "logs/nas",
+        use_real_training: bool = False,
+        data_cfg: Optional['CodeCharDatasetConfig'] = None,
+        max_train_steps: int = 500
+    ):
+        self.dataset_name = dataset_name
+        self.device = device
+        self.log_dir = Path(log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Real training configuration
+        self.use_real_training = use_real_training
+        self.data_cfg = data_cfg
+        self.max_train_steps = max_train_steps
+
+        # Legacy (for simulated training)
+        self.train_data = None
+        self.val_data = None
+        self.test_data = None
+
+    def evaluate_fast(
+        self,
+        config: ArchitectureConfig,
+        num_samples: int = 1000,
+        num_epochs: int = 5
+    ) -> Optional[EvaluationResult]:
+        """
+        高速評価（スクリーニング用）
+
+        Args:
+            config: Architecture configuration
+            num_samples: Number of training samples
+            num_epochs: Number of training epochs
+
+        Returns:
+            EvaluationResult or None (if early stopped)
+        """
+        print(f"\n[FAST EVAL] {config.arch_type}, L{config.num_layers}, H{config.hidden_dim}")
+
+        start_time = time.time()
+
+        # Estimate size (quick check)
+        model_size_mb = config.estimate_size_mb()
+
+        # Quick check: if model is too large, skip
+        if model_size_mb > 500:
+            print(f"  → Skipped (too large: {model_size_mb:.1f} MB)")
+            return None
+
+        # Train: real or simulated
+        if self.use_real_training and self.data_cfg is not None:
+            # Real training
+            from train_loop import train_one_architecture
+
+            metrics = train_one_architecture(
+                config,
+                self.data_cfg,
+                device=self.device,
+                max_steps=self.max_train_steps,
+                lr=3e-4,
+                log_interval=max(self.max_train_steps // 5, 50)
+            )
+
+            # Convert val_loss to accuracy-like metric (lower loss = higher score)
+            # For code LM: accuracy ~ exp(-val_loss)
+            accuracy = min(1.0, max(0.0, torch.exp(-torch.tensor(metrics['val_loss'])).item()))
+            latency_ms = metrics['latency_ms']
+            model_size_mb = metrics['model_size_mb']
+            flops = 0  # TODO: compute from metrics
+
+        else:
+            # Simulated training (legacy)
+            model = self._build_model(config)
+
+            accuracy = self._train_simulated(
+                model, config, num_samples, num_epochs
+            )
+
+            latency_ms = self._measure_latency(model, config)
+            flops = self._estimate_flops(config)
+
+        training_time = (time.time() - start_time) / 60.0  # minutes
+
+        result = EvaluationResult(
+            accuracy=accuracy,
+            model_size_mb=model_size_mb,
+            latency_ms=latency_ms,
+            flops=flops,
+            architecture=config,
+            training_time_minutes=training_time,
+            early_stopped=False
+        )
+
+        result.compute_fitness()
+
+        print(f"  → Acc: {accuracy:.3f}, Size: {model_size_mb:.1f}MB, "
+              f"Lat: {latency_ms:.2f}ms, Fitness: {result.fitness:.3f}")
+
+        return result
+
+    def evaluate_medium(
+        self,
+        config: ArchitectureConfig,
+        num_samples: int = 10000,
+        num_epochs: int = 10
+    ) -> EvaluationResult:
+        """中規模評価"""
+        # Similar to fast, but more thorough
+        pass
+
+    def evaluate_full(
+        self,
+        config: ArchitectureConfig,
+        num_samples: int = 100000,
+        num_epochs: int = 20
+    ) -> EvaluationResult:
+        """完全評価"""
+        # Full training and evaluation
+        pass
+
+    def _build_model(self, config: ArchitectureConfig) -> nn.Module:
+        """
+        モデル構築
+
+        Uses models.py implementation
+        """
+        from models import build_model
+
+        try:
+            model = build_model(config)
+            return model.to(self.device)
+        except NotImplementedError:
+            # Fall back to simple model for unsupported architectures
+            print(f"  [WARNING] {config.arch_type} not implemented, using simple model")
+            return self._build_simple_model(config)
+
+    def _build_simple_model(self, config: ArchitectureConfig) -> nn.Module:
+        """Simple fallback model for unsupported architectures"""
+        class SimpleModel(nn.Module):
+            def __init__(self, config):
+                super().__init__()
+                self.config = config
+                self.embedding = nn.Embedding(config.vocab_size, config.hidden_dim)
+                self.layers = nn.ModuleList([
+                    nn.Linear(config.hidden_dim, config.hidden_dim)
+                    for _ in range(config.num_layers)
+                ])
+                self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size)
+
+            def forward(self, x):
+                x = self.embedding(x)
+                for layer in self.layers:
+                    x = layer(x)
+                return self.lm_head(x)
+
+        return SimpleModel(config).to(self.device)
+
+    def _train_simulated(
+        self,
+        model: nn.Module,
+        config: ArchitectureConfig,
+        num_samples: int,
+        num_epochs: int
+    ) -> float:
+        """
+        訓練のシミュレーション（実装は後で）
+
+        今はランダムな精度を返す（テスト用）
+
+        TODO: 実際の訓練実装
+        """
+        import random
+
+        # Simulate training time
+        time.sleep(0.1)
+
+        # Random accuracy (for testing)
+        # 実際は訓練して本物の精度を測定
+        base_accuracy = 0.3
+        layer_bonus = config.num_layers * 0.02
+        dim_bonus = (config.hidden_dim / 1024) * 0.1
+
+        accuracy = base_accuracy + layer_bonus + dim_bonus
+        accuracy += random.uniform(-0.05, 0.05)  # noise
+        accuracy = max(0.0, min(1.0, accuracy))
+
+        return accuracy
+
+    def _measure_latency(
+        self,
+        model: nn.Module,
+        config: ArchitectureConfig,
+        num_runs: int = 100
+    ) -> float:
+        """
+        推論レイテンシの測定
+
+        Args:
+            model: Model to measure
+            config: Architecture config
+            num_runs: Number of runs for averaging
+
+        Returns:
+            Average latency in milliseconds
+        """
+        model.eval()
+
+        # Dummy input
+        batch_size = 1
+        seq_length = 128
+        dummy_input = torch.randint(
+            0, config.vocab_size, (batch_size, seq_length)
+        ).to(self.device)
+
+        # Warmup
+        with torch.no_grad():
+            for _ in range(10):
+                _ = model(dummy_input)
+
+        # Measure
+        torch.cuda.synchronize() if torch.cuda.is_available() else None
+        start_time = time.time()
+
+        with torch.no_grad():
+            for _ in range(num_runs):
+                _ = model(dummy_input)
+
+        torch.cuda.synchronize() if torch.cuda.is_available() else None
+        end_time = time.time()
+
+        avg_latency_ms = (end_time - start_time) / num_runs * 1000
+
+        return avg_latency_ms
+
+    def _estimate_flops(self, config: ArchitectureConfig) -> int:
+        """
+        FLOPs の推定
+
+        Transformer の場合（1トークンあたり）:
+        - Attention: 2 * seq_len * hidden_dim^2
+        - FFN: 2 * 2 * hidden_dim * ffn_dim
+
+        Returns:
+            Estimated FLOPs for one forward pass
+        """
+        seq_len = 128  # assume
+
+        flops = 0
+
+        for _ in range(config.num_layers):
+            # Attention
+            flops += 2 * seq_len * config.hidden_dim ** 2
+
+            # FFN
+            ffn_dim = int(config.hidden_dim * config.ffn_multiplier)
+            flops += 2 * 2 * config.hidden_dim * ffn_dim
+
+        return flops
+
+    def save_result(self, result: EvaluationResult, filename: str = None):
+        """評価結果の保存"""
+        if filename is None:
+            timestamp = int(time.time())
+            filename = f"eval_{timestamp}.json"
+
+        filepath = self.log_dir / filename
+
+        with open(filepath, "w") as f:
+            json.dump(result.to_dict(), f, indent=2)
+
+        print(f"Saved evaluation result to {filepath}")
+
+
+def compare_architectures(results: List[EvaluationResult]):
+    """
+    アーキテクチャの比較（Pandas DataFrame）
+
+    Args:
+        results: List of evaluation results
+
+    Returns:
+        DataFrame with comparison (or None if pandas not installed)
+    """
+    try:
+        import pandas as pd
+
+        data = []
+        for r in results:
+            data.append({
+                "arch_type": r.architecture.arch_type,
+                "layers": r.architecture.num_layers,
+                "hidden": r.architecture.hidden_dim,
+                "accuracy": r.accuracy,
+                "size_mb": r.model_size_mb,
+                "latency_ms": r.latency_ms,
+                "fitness": r.fitness
+            })
+
+        df = pd.DataFrame(data)
+        df = df.sort_values("fitness", ascending=False)
+        return df
+
+    except ImportError:
+        print("Pandas not installed. Install with: pip install pandas")
+        return None
+
+
+if __name__ == "__main__":
+    from search_space import get_baseline_architectures, SearchSpace
+
+    print("=" * 60)
+    print("NAS Evaluator Test")
+    print("=" * 60)
+
+    evaluator = Evaluator(device="cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # Test with baselines
+    baselines = get_baseline_architectures()
+
+    results = []
+    for i, config in enumerate(baselines, 1):
+        print(f"\n[{i}/{len(baselines)}] Evaluating baseline...")
+        result = evaluator.evaluate_fast(config)
+
+        if result:
+            results.append(result)
+            evaluator.save_result(result, f"baseline_{i}.json")
+
+    # Test with random architectures
+    space = SearchSpace(mode="minimal")
+
+    print("\n" + "=" * 60)
+    print("Random Architecture Evaluation")
+    print("=" * 60)
+
+    for i in range(5):
+        config = space.sample_random()
+        print(f"\n[{i+1}/5] Evaluating random architecture...")
+        result = evaluator.evaluate_fast(config)
+
+        if result:
+            results.append(result)
+
+    # Summary
+    print("\n" + "=" * 60)
+    print("Evaluation Summary")
+    print("=" * 60)
+
+    results.sort(key=lambda r: r.fitness, reverse=True)
+
+    for i, r in enumerate(results[:5], 1):
+        print(f"\nRank {i}:")
+        print(f"  Type: {r.architecture.arch_type}")
+        print(f"  Size: L{r.architecture.num_layers} H{r.architecture.hidden_dim}")
+        print(f"  Accuracy: {r.accuracy:.3f}")
+        print(f"  Size: {r.model_size_mb:.1f} MB")
+        print(f"  Latency: {r.latency_ms:.2f} ms")
+        print(f"  Fitness: {r.fitness:.3f}")
+"""
+Evolutionary Neural Architecture Search
+
+遺伝的アルゴリズムによるアーキテクチャ探索:
+- Population-based search
+- Multi-objective optimization (accuracy, size, latency)
+- Elite selection + crossover + mutation
+- Parallel evaluation on multiple GPUs
+"""
+
+from typing import List, Tuple, Optional, Dict
+import random
+import time
+import json
+from pathlib import Path
+from dataclasses import dataclass, asdict
+import numpy as np
+
+from search_space import ArchitectureConfig, SearchSpace
+from evaluator import Evaluator, EvaluationResult
+
+
+@dataclass
+class EvolutionConfig:
+    """進化的探索の設定"""
+
+    # Population
+    population_size: int = 50
+    num_generations: int = 100
+
+    # Selection
+    elite_ratio: float = 0.2  # Top 20% survive
+    tournament_size: int = 3
+
+    # Genetic operators
+    mutation_rate: float = 0.3  # 30% of genes mutate
+    crossover_rate: float = 0.7  # 70% chance of crossover
+
+    # Evaluation
+    evaluation_mode: str = "fast"  # "fast", "medium", "full"
+    parallel_gpus: List[str] = None  # ["cuda:0", "cuda:1"]
+
+    # Logging
+    log_dir: str = "logs/evolution"
+    save_frequency: int = 5  # Save every 5 generations
+
+    def __post_init__(self):
+        if self.parallel_gpus is None:
+            self.parallel_gpus = ["cuda:0"]
+
+
+class EvolutionaryNAS:
+    """
+    遺伝的アルゴリズムによるNAS
+
+    アルゴリズム:
+    1. 初期集団をランダムサンプリング
+    2. 各個体を評価（accuracy, size, latency）
+    3. エリート選択（上位20%）
+    4. トーナメント選択で親を選ぶ
+    5. 交叉と突然変異で子世代を生成
+    6. 次世代へ
+    """
+
+    def __init__(
+        self,
+        search_space: SearchSpace,
+        evaluator: Evaluator,
+        config: EvolutionConfig = None
+    ):
+        self.search_space = search_space
+        self.evaluator = evaluator
+        self.config = config or EvolutionConfig()
+
+        # Logging
+        self.log_dir = Path(self.config.log_dir)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Evolution state
+        self.generation = 0
+        self.population: List[ArchitectureConfig] = []
+        self.fitness_history: List[Dict] = []
+        self.best_architecture: Optional[EvaluationResult] = None
+
+    def initialize_population(self) -> List[ArchitectureConfig]:
+        """
+        初期集団の生成
+
+        戦略:
+        - 50% ランダムサンプリング
+        - 50% スマートサンプリング（既知の良い設定の近傍）
+        """
+        population = []
+
+        # Random sampling
+        num_random = self.config.population_size // 2
+        for _ in range(num_random):
+            arch = self.search_space.sample_random()
+            population.append(arch)
+
+        # Smart sampling (near good baselines)
+        num_smart = self.config.population_size - num_random
+        for _ in range(num_smart):
+            arch = self.search_space.sample_smart()
+            population.append(arch)
+
+        print(f"Initialized population: {len(population)} architectures")
+        return population
+
+    def evaluate_population(
+        self,
+        population: List[ArchitectureConfig]
+    ) -> List[Optional[EvaluationResult]]:
+        """
+        集団の評価
+
+        TODO: 並列評価の実装（複数GPU）
+        """
+        results = []
+
+        for i, arch in enumerate(population, 1):
+            print(f"\n[Gen {self.generation}] Evaluating {i}/{len(population)}...")
+
+            # Evaluate based on mode
+            if self.config.evaluation_mode == "fast":
+                result = self.evaluator.evaluate_fast(arch)
+            elif self.config.evaluation_mode == "medium":
+                result = self.evaluator.evaluate_medium(arch)
+            else:
+                result = self.evaluator.evaluate_full(arch)
+
+            results.append(result)
+
+            # Track best
+            if result and (self.best_architecture is None or
+                          result.fitness > self.best_architecture.fitness):
+                self.best_architecture = result
+                print(f"  *** NEW BEST: Fitness {result.fitness:.3f}")
+
+        return results
+
+    def select_elite(
+        self,
+        population: List[ArchitectureConfig],
+        results: List[Optional[EvaluationResult]]
+    ) -> Tuple[List[ArchitectureConfig], List[EvaluationResult]]:
+        """
+        エリート選択（上位N%を保存）
+
+        Returns:
+            (elite_architectures, elite_results)
+        """
+        # Filter out None results (early stopped)
+        valid_pairs = [
+            (arch, result)
+            for arch, result in zip(population, results)
+            if result is not None
+        ]
+
+        if not valid_pairs:
+            print("⚠️  No valid architectures in population!")
+            return [], []
+
+        # Sort by fitness (descending)
+        valid_pairs.sort(key=lambda x: x[1].fitness, reverse=True)
+
+        # Select top N%
+        num_elite = max(1, int(len(valid_pairs) * self.config.elite_ratio))
+        elite_pairs = valid_pairs[:num_elite]
+
+        elite_archs = [arch for arch, _ in elite_pairs]
+        elite_results = [result for _, result in elite_pairs]
+
+        print(f"\n[ELITE] Selected {len(elite_archs)} architectures")
+        print(f"   Best fitness: {elite_results[0].fitness:.3f}")
+        print(f"   Worst elite fitness: {elite_results[-1].fitness:.3f}")
+
+        return elite_archs, elite_results
+
+    def tournament_selection(
+        self,
+        population: List[ArchitectureConfig],
+        results: List[EvaluationResult],
+        k: int = None
+    ) -> ArchitectureConfig:
+        """
+        トーナメント選択
+
+        Args:
+            population: 候補アーキテクチャ
+            results: 評価結果
+            k: トーナメントサイズ
+
+        Returns:
+            選ばれたアーキテクチャ
+        """
+        if k is None:
+            k = self.config.tournament_size
+
+        # Ensure k doesn't exceed population size
+        k = min(k, len(population))
+
+        # Randomly select k individuals
+        indices = random.sample(range(len(population)), k)
+        tournament = [(population[i], results[i]) for i in indices]
+
+        # Select best from tournament
+        winner = max(tournament, key=lambda x: x[1].fitness)
+        return winner[0]
+
+    def crossover(
+        self,
+        parent1: ArchitectureConfig,
+        parent2: ArchitectureConfig
+    ) -> ArchitectureConfig:
+        """
+        交叉（2点交叉）
+
+        Args:
+            parent1, parent2: 親アーキテクチャ
+
+        Returns:
+            子アーキテクチャ
+        """
+        # Convert to dicts
+        p1_dict = parent1.to_dict()
+        p2_dict = parent2.to_dict()
+
+        # Create child by randomly selecting from each parent
+        child_dict = {}
+        for key in p1_dict.keys():
+            if random.random() < 0.5:
+                child_dict[key] = p1_dict[key]
+            else:
+                child_dict[key] = p2_dict[key]
+
+        child = ArchitectureConfig.from_dict(child_dict)
+
+        # Validity check and fix
+        is_valid, error = child.is_valid()
+        if not is_valid:
+            # Fix common issues
+            if "hidden_dim" in error and "num_heads" in error:
+                # Make hidden_dim divisible by num_heads
+                while child.hidden_dim % child.num_heads != 0:
+                    child.num_heads = random.choice(self.search_space.space["num_heads"])
+
+        return child
+
+    def mutate(self, architecture: ArchitectureConfig) -> ArchitectureConfig:
+        """
+        突然変異
+
+        Args:
+            architecture: アーキテクチャ
+
+        Returns:
+            変異後のアーキテクチャ
+        """
+        arch_dict = architecture.to_dict()
+
+        # Mutate each gene with mutation_rate probability
+        for key in arch_dict.keys():
+            if random.random() < self.config.mutation_rate:
+                # Replace with random value from search space
+                if key in self.search_space.space:
+                    arch_dict[key] = random.choice(self.search_space.space[key])
+
+        mutated = ArchitectureConfig.from_dict(arch_dict)
+
+        # Validity check and fix
+        is_valid, error = mutated.is_valid()
+        if not is_valid:
+            if "hidden_dim" in error and "num_heads" in error:
+                while mutated.hidden_dim % mutated.num_heads != 0:
+                    mutated.num_heads = random.choice(self.search_space.space["num_heads"])
+
+        return mutated
+
+    def create_offspring(
+        self,
+        parents: List[ArchitectureConfig],
+        parent_results: List[EvaluationResult],
+        num_offspring: int
+    ) -> List[ArchitectureConfig]:
+        """
+        子世代の生成
+
+        Args:
+            parents: 親世代
+            parent_results: 親の評価結果
+            num_offspring: 生成する子の数
+
+        Returns:
+            子世代
+        """
+        offspring = []
+
+        for _ in range(num_offspring):
+            # Crossover
+            if random.random() < self.config.crossover_rate and len(parents) >= 2:
+                # Tournament selection for parents
+                parent1 = self.tournament_selection(parents, parent_results)
+                parent2 = self.tournament_selection(parents, parent_results)
+                child = self.crossover(parent1, parent2)
+            else:
+                # Just copy a parent
+                parent = self.tournament_selection(parents, parent_results)
+                child = ArchitectureConfig.from_dict(parent.to_dict())
+
+            # Mutation
+            child = self.mutate(child)
+
+            offspring.append(child)
+
+        return offspring
+
+    def evolve_generation(self) -> Dict:
+        """
+        1世代の進化
+
+        Returns:
+            世代の統計情報
+        """
+        print(f"\n{'='*60}")
+        print(f"Generation {self.generation}")
+        print(f"{'='*60}")
+
+        start_time = time.time()
+
+        # Evaluate population
+        results = self.evaluate_population(self.population)
+
+        # Select elite
+        elite_archs, elite_results = self.select_elite(self.population, results)
+
+        if not elite_archs:
+            print("WARNING: No elite architectures! Re-initializing population...")
+            self.population = self.initialize_population()
+            return {}
+
+        # Create offspring
+        num_offspring = self.config.population_size - len(elite_archs)
+        offspring = self.create_offspring(elite_archs, elite_results, num_offspring)
+
+        # Next generation = elite + offspring
+        self.population = elite_archs + offspring
+
+        # Statistics
+        valid_results = [r for r in results if r is not None]
+        stats = {
+            "generation": self.generation,
+            "num_evaluated": len(results),
+            "num_valid": len(valid_results),
+            "num_elite": len(elite_archs),
+            "best_fitness": max(r.fitness for r in valid_results) if valid_results else 0.0,
+            "mean_fitness": np.mean([r.fitness for r in valid_results]) if valid_results else 0.0,
+            "std_fitness": np.std([r.fitness for r in valid_results]) if valid_results else 0.0,
+            "time_minutes": (time.time() - start_time) / 60.0
+        }
+
+        self.fitness_history.append(stats)
+
+        # Log
+        print(f"\n[SUMMARY] Generation {self.generation}:")
+        print(f"   Valid: {stats['num_valid']}/{stats['num_evaluated']}")
+        print(f"   Best fitness: {stats['best_fitness']:.3f}")
+        print(f"   Mean fitness: {stats['mean_fitness']:.3f} +/- {stats['std_fitness']:.3f}")
+        print(f"   Time: {stats['time_minutes']:.1f} min")
+
+        # Save
+        if self.generation % self.config.save_frequency == 0:
+            self.save_checkpoint()
+
+        self.generation += 1
+
+        return stats
+
+    def run(self, num_generations: int = None) -> EvaluationResult:
+        """
+        進化的探索の実行
+
+        Args:
+            num_generations: 世代数（Noneならconfig使用）
+
+        Returns:
+            最良アーキテクチャの評価結果
+        """
+        if num_generations is None:
+            num_generations = self.config.num_generations
+
+        print(f"\n{'='*60}")
+        print(f"Starting Evolutionary NAS")
+        print(f"{'='*60}")
+        print(f"Population size: {self.config.population_size}")
+        print(f"Generations: {num_generations}")
+        print(f"Evaluation mode: {self.config.evaluation_mode}")
+        print(f"Search space size: {self.search_space.get_search_space_size():,}")
+
+        # Initialize
+        self.population = self.initialize_population()
+
+        # Evolve
+        for gen in range(num_generations):
+            stats = self.evolve_generation()
+
+            if not stats:
+                print("WARNING: Evolution failed, stopping...")
+                break
+
+        # Final results
+        print(f"\n{'='*60}")
+        print(f"Evolution Complete!")
+        print(f"{'='*60}")
+
+        if self.best_architecture:
+            print(f"\n[BEST ARCHITECTURE]")
+            print(f"   Type: {self.best_architecture.architecture.arch_type}")
+            print(f"   Layers: {self.best_architecture.architecture.num_layers}")
+            print(f"   Hidden: {self.best_architecture.architecture.hidden_dim}")
+            print(f"   Heads: {self.best_architecture.architecture.num_heads}")
+            print(f"   Accuracy: {self.best_architecture.accuracy:.3f}")
+            print(f"   Size: {self.best_architecture.model_size_mb:.1f} MB")
+            print(f"   Latency: {self.best_architecture.latency_ms:.2f} ms")
+            print(f"   Fitness: {self.best_architecture.fitness:.3f}")
+
+            # Save best
+            self.save_best_architecture()
+
+        return self.best_architecture
+
+    def save_checkpoint(self):
+        """チェックポイントの保存"""
+        checkpoint = {
+            "generation": self.generation,
+            "config": asdict(self.config),
+            "fitness_history": self.fitness_history,
+            "best_architecture": self.best_architecture.to_dict() if self.best_architecture else None
+        }
+
+        filepath = self.log_dir / f"checkpoint_gen{self.generation}.json"
+        with open(filepath, "w") as f:
+            json.dump(checkpoint, f, indent=2)
+
+        print(f"   [SAVE] Checkpoint: {filepath}")
+
+    def save_best_architecture(self):
+        """最良アーキテクチャの保存"""
+        if not self.best_architecture:
+            return
+
+        filepath = self.log_dir / "best_architecture.json"
+        with open(filepath, "w") as f:
+            json.dump(self.best_architecture.to_dict(), f, indent=2)
+
+        print(f"\n[SAVE] Best architecture: {filepath}")
+
+
+if __name__ == "__main__":
+    import torch
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evolutionary NAS")
+    parser.add_argument("--experiment_name", type=str, default="test")
+    parser.add_argument("--population", type=int, default=4)
+    parser.add_argument("--generations", type=int, default=2)
+    parser.add_argument("--use_real_training", action="store_true")
+    parser.add_argument("--train_path", type=str, default="../data/code_char/train.txt")
+    parser.add_argument("--val_path", type=str, default="../data/code_char/val.txt")
+    parser.add_argument("--seq_len", type=int, default=128)
+    parser.add_argument("--batch_size", type=int, default=16)
+    parser.add_argument("--max_train_steps", type=int, default=200)
+    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--search_mode", type=str, default="minimal", choices=["minimal", "medium", "full"])
+    args = parser.parse_args()
+
+    print("="*60)
+    print("Evolutionary NAS")
+    print("="*60)
+    print(f"Experiment: {args.experiment_name}")
+    print(f"Population: {args.population}")
+    print(f"Generations: {args.generations}")
+    print(f"Real training: {args.use_real_training}")
+    print(f"Device: {args.device}")
+
+    # Setup
+    device = args.device if torch.cuda.is_available() else "cpu"
+
+    search_space = SearchSpace(mode=args.search_mode)
+
+    # Evaluator configuration
+    if args.use_real_training:
+        from datasets import CodeCharDatasetConfig
+
+        data_cfg = CodeCharDatasetConfig(
+            train_path=args.train_path,
+            val_path=args.val_path,
+            seq_len=args.seq_len,
+            batch_size=args.batch_size
+        )
+
+        evaluator = Evaluator(
+            device=device,
+            log_dir=f"logs/{args.experiment_name}",
+            use_real_training=True,
+            data_cfg=data_cfg,
+            max_train_steps=args.max_train_steps
+        )
+    else:
+        evaluator = Evaluator(device=device, log_dir=f"logs/{args.experiment_name}")
+
+    config = EvolutionConfig(
+        population_size=args.population,
+        num_generations=args.generations,
+        elite_ratio=0.2,
+        mutation_rate=0.3,
+        evaluation_mode="fast",
+        log_dir=f"logs/{args.experiment_name}/evolution"
+    )
+
+    # Run evolution
+    nas = EvolutionaryNAS(
+        search_space=search_space,
+        evaluator=evaluator,
+        config=config
+    )
+
+    best = nas.run()
+
+    # Plot fitness history (if matplotlib available)
+    try:
+        import matplotlib.pyplot as plt
+
+        generations = [h["generation"] for h in nas.fitness_history]
+        best_fitness = [h["best_fitness"] for h in nas.fitness_history]
+        mean_fitness = [h["mean_fitness"] for h in nas.fitness_history]
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(generations, best_fitness, 'b-', label='Best', linewidth=2)
+        plt.plot(generations, mean_fitness, 'r--', label='Mean', linewidth=2)
+        plt.xlabel('Generation')
+        plt.ylabel('Fitness')
+        plt.title('Evolution Progress')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        plot_path = config.log_dir + "/fitness_history.png"
+        plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+        print(f"\n[PLOT] Saved fitness history: {plot_path}")
+
+    except ImportError:
+        print("\nMatplotlib not installed, skipping plot")
+"""
+Neural Architecture Implementations
+
+各アーキテクチャの実際の実装:
+- Transformer (standard attention)
+- Linear Transformer (linear attention)
+- FlashAttention (memory efficient)
+- Grouped Query Attention (GQA)
+- Mamba (state space model)
+- RWKV (RNN-like transformer)
+"""
+
+import math
+from typing import Optional, Tuple
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from search_space import ArchitectureConfig
+
+
+# ===== Normalization Layers =====
+
+def get_normalization(norm_type: str, dim: int) -> nn.Module:
+    """Get normalization layer"""
+    if norm_type == "layernorm":
+        return nn.LayerNorm(dim)
+    elif norm_type == "rmsnorm":
+        return RMSNorm(dim)
+    elif norm_type == "groupnorm":
+        # Default: 8 groups
+        num_groups = min(8, dim)
+        return nn.GroupNorm(num_groups, dim)
+    else:
+        raise ValueError(f"Unknown normalization: {norm_type}")
+
+
+class RMSNorm(nn.Module):
+    """
+    Root Mean Square Layer Normalization
+
+    Used in: LLaMA, Gopher, Chinchilla
+    Paper: "Root Mean Square Layer Normalization" (2019)
+
+    Faster than LayerNorm (no mean subtraction)
+    """
+
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # RMS = sqrt(mean(x^2))
+        rms = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        x_norm = x / rms
+        return self.weight * x_norm
+
+
+# ===== Activation Functions =====
+
+def get_activation(act_type: str) -> nn.Module:
+    """Get activation function"""
+    if act_type == "gelu":
+        return nn.GELU()
+    elif act_type == "silu":
+        return nn.SiLU()
+    elif act_type == "geglu":
+        return GeGLU()
+    elif act_type == "swiglu":
+        return SwiGLU()
+    else:
+        raise ValueError(f"Unknown activation: {act_type}")
+
+
+class GeGLU(nn.Module):
+    """
+    GELU Gated Linear Unit
+
+    Paper: "GLU Variants Improve Transformer" (2020)
+    Used in: GPT-3, PaLM
+
+    Formula: GELU(x @ W) * (x @ V)
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return x * F.gelu(gate)
+
+
+class SwiGLU(nn.Module):
+    """
+    Swish/SiLU Gated Linear Unit
+
+    Paper: "GLU Variants Improve Transformer" (2020)
+    Used in: LLaMA, PaLM 2
+
+    Formula: SiLU(x @ W) * (x @ V)
+    """
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, gate = x.chunk(2, dim=-1)
+        return x * F.silu(gate)
+
+
+# ===== Position Encoding =====
+
+class PositionalEncoding(nn.Module):
+    """
+    Absolute sinusoidal positional encoding
+
+    Paper: "Attention is All You Need" (2017)
+    Used in: Original Transformer, BERT, GPT
+    """
+
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super().__init__()
+
+        # Create positional encoding matrix
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        # Register as buffer (not a parameter)
+        self.register_buffer('pe', pe.unsqueeze(0))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: (batch_size, seq_len, d_model)
+        Returns:
+            x + positional encoding
+        """
+        return x + self.pe[:, :x.size(1), :]
+
+
+class RotaryPositionalEmbedding(nn.Module):
+    """
+    Rotary Position Embedding (RoPE)
+
+    Paper: "RoFormer: Enhanced Transformer with Rotary Position Embedding" (2021)
+    Used in: LLaMA, GPT-NeoX, PaLM
+
+    Advantages:
+    - Relative position encoding
+    - Better long-range modeling
+    - No trainable parameters
+    """
+
+    def __init__(self, dim: int, max_len: int = 2048):
+        super().__init__()
+
+        # Precompute rotation matrix
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer('inv_freq', inv_freq)
+
+        # Cache for efficiency
+        self._seq_len_cached = 0
+        self._cos_cached = None
+        self._sin_cached = None
+
+    def forward(self, x: torch.Tensor, seq_len: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns:
+            cos, sin for rotary embedding
+        """
+        if seq_len != self._seq_len_cached:
+            self._seq_len_cached = seq_len
+
+            t = torch.arange(seq_len, device=x.device).type_as(self.inv_freq)
+            freqs = torch.einsum('i,j->ij', t, self.inv_freq)
+            emb = torch.cat((freqs, freqs), dim=-1)
+
+            self._cos_cached = emb.cos()
+            self._sin_cached = emb.sin()
+
+        return self._cos_cached, self._sin_cached
+
+
+def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Apply rotary position embedding"""
+    # Rotate q and k
+    def rotate_half(x):
+        x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
+        return torch.cat((-x2, x1), dim=-1)
+
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+
+    return q_embed, k_embed
+
+
+# ===== Attention Mechanisms =====
+
+class MultiHeadAttention(nn.Module):
+    """
+    Standard Multi-Head Attention
+
+    Paper: "Attention is All You Need" (2017)
+    Complexity: O(n^2 * d)
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        dropout: float = 0.1,
+        use_rope: bool = False
+    ):
+        super().__init__()
+
+        assert hidden_dim % num_heads == 0, f"hidden_dim ({hidden_dim}) must be divisible by num_heads ({num_heads})"
+
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        # Q, K, V projections
+        self.qkv = nn.Linear(hidden_dim, 3 * hidden_dim, bias=False)
+        self.out_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
+
+        self.dropout = nn.Dropout(dropout)
+
+        # RoPE
+        self.use_rope = use_rope
+        if use_rope:
+            self.rotary_emb = RotaryPositionalEmbedding(self.head_dim)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """
+        Args:
+            x: (batch_size, seq_len, hidden_dim)
+            mask: (batch_size, seq_len, seq_len) or None
+
+        Returns:
+            (batch_size, seq_len, hidden_dim)
+        """
+        batch_size, seq_len, _ = x.shape
+
+        # QKV projection
+        qkv = self.qkv(x)  # (B, L, 3*H)
+        qkv = qkv.reshape(batch_size, seq_len, 3, self.num_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, nh, L, hd)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # Each: (B, nh, L, hd)
+
+        # Apply RoPE if enabled
+        if self.use_rope:
+            cos, sin = self.rotary_emb(x, seq_len)
+            q, k = apply_rotary_pos_emb(q, k, cos, sin)
+
+        # Scaled dot-product attention
+        attn = (q @ k.transpose(-2, -1)) * self.scale  # (B, nh, L, L)
+
+        # Apply mask
+        if mask is not None:
+            attn = attn.masked_fill(mask == 0, float('-inf'))
+
+        attn = F.softmax(attn, dim=-1)
+        attn = self.dropout(attn)
+
+        # Combine heads
+        out = attn @ v  # (B, nh, L, hd)
+        out = out.transpose(1, 2).contiguous()  # (B, L, nh, hd)
+        out = out.reshape(batch_size, seq_len, self.hidden_dim)  # (B, L, H)
+
+        out = self.out_proj(out)
+
+        return out
+
+
+# ===== Feed-Forward Networks =====
+
+class FeedForward(nn.Module):
+    """
+    Position-wise Feed-Forward Network
+
+    Paper: "Attention is All You Need" (2017)
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        ffn_dim: int,
+        activation: str = "gelu",
+        dropout: float = 0.1
+    ):
+        super().__init__()
+
+        # GLU variants use 2/3 expansion (since gating halves dimension)
+        if activation in ["geglu", "swiglu"]:
+            # Project to 2 * ffn_dim (will be halved by gating)
+            self.fc1 = nn.Linear(hidden_dim, 2 * ffn_dim, bias=False)
+            self.fc2 = nn.Linear(ffn_dim, hidden_dim, bias=False)
+        else:
+            self.fc1 = nn.Linear(hidden_dim, ffn_dim, bias=False)
+            self.fc2 = nn.Linear(ffn_dim, hidden_dim, bias=False)
+
+        self.activation = get_activation(activation)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
+        x = self.activation(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+
+# ===== Transformer Block =====
+
+class TransformerBlock(nn.Module):
+    """
+    Standard Transformer Block
+
+    Architecture:
+    - Layer Norm 1
+    - Multi-Head Attention
+    - Residual connection
+    - Layer Norm 2
+    - Feed-Forward
+    - Residual connection
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        ffn_dim: int,
+        normalization: str = "layernorm",
+        activation: str = "gelu",
+        attention_dropout: float = 0.1,
+        residual_dropout: float = 0.1,
+        use_rope: bool = False
+    ):
+        super().__init__()
+
+        # Pre-norm architecture (LLaMA, GPT-3 style)
+        self.norm1 = get_normalization(normalization, hidden_dim)
+        self.attn = MultiHeadAttention(
+            hidden_dim, num_heads, attention_dropout, use_rope
+        )
+
+        self.norm2 = get_normalization(normalization, hidden_dim)
+        self.ffn = FeedForward(
+            hidden_dim, ffn_dim, activation, residual_dropout
+        )
+
+        self.dropout = nn.Dropout(residual_dropout)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        # Attention block with residual
+        residual = x
+        x = self.norm1(x)
+        x = self.attn(x, mask)
+        x = self.dropout(x)
+        x = residual + x
+
+        # FFN block with residual
+        residual = x
+        x = self.norm2(x)
+        x = self.ffn(x)
+        x = self.dropout(x)
+        x = residual + x
+
+        return x
+
+
+# ===== Complete Models =====
+
+class TransformerLM(nn.Module):
+    """
+    Transformer Language Model
+
+    Based on: GPT-2, GPT-3, LLaMA architecture
+    """
+
+    def __init__(self, config: ArchitectureConfig):
+        super().__init__()
+
+        self.config = config
+
+        # Embeddings
+        self.token_embedding = nn.Embedding(config.vocab_size, config.hidden_dim)
+
+        # Positional encoding
+        self.use_rope = (config.position_encoding == "rope")
+        if config.position_encoding == "absolute":
+            self.pos_encoding = PositionalEncoding(
+                config.hidden_dim, config.max_seq_length
+            )
+        # RoPE is applied inside attention
+
+        # Transformer blocks
+        ffn_dim = int(config.hidden_dim * config.ffn_multiplier)
+
+        self.layers = nn.ModuleList([
+            TransformerBlock(
+                hidden_dim=config.hidden_dim,
+                num_heads=config.num_heads,
+                ffn_dim=ffn_dim,
+                normalization=config.normalization,
+                activation=config.activation,
+                attention_dropout=config.attention_dropout,
+                residual_dropout=config.residual_dropout,
+                use_rope=self.use_rope
+            )
+            for _ in range(config.num_layers)
+        ])
+
+        # Final norm
+        self.norm = get_normalization(config.normalization, config.hidden_dim)
+
+        # LM head
+        self.lm_head = nn.Linear(config.hidden_dim, config.vocab_size, bias=False)
+
+        # Weight tying (optional, common in modern LMs)
+        # self.lm_head.weight = self.token_embedding.weight
+
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """Initialize weights (GPT-2 style)"""
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """
+        Args:
+            input_ids: (batch_size, seq_len)
+            attention_mask: (batch_size, seq_len) or None
+
+        Returns:
+            logits: (batch_size, seq_len, vocab_size)
+        """
+        # Embed tokens
+        x = self.token_embedding(input_ids)  # (B, L, H)
+
+        # Add positional encoding (if absolute)
+        if hasattr(self, 'pos_encoding'):
+            x = self.pos_encoding(x)
+
+        # Apply transformer blocks
+        for layer in self.layers:
+            x = layer(x, attention_mask)
+
+        # Final norm
+        x = self.norm(x)
+
+        # LM head
+        logits = self.lm_head(x)  # (B, L, V)
+
+        return logits
+
+
+# ===== Model Factory =====
+
+def build_model(config: ArchitectureConfig) -> nn.Module:
+    """
+    Build model from configuration
+
+    Args:
+        config: ArchitectureConfig
+
+    Returns:
+        nn.Module (TransformerLM, MambaLM, etc.)
+    """
+    if config.arch_type == "transformer":
+        return TransformerLM(config)
+
+    elif config.arch_type == "linear_transformer":
+        # TODO: Implement LinearTransformer
+        raise NotImplementedError("LinearTransformer not yet implemented")
+
+    elif config.arch_type == "flash_attention":
+        # Use TransformerLM with FlashAttention
+        # TODO: Integrate flash_attn package
+        raise NotImplementedError("FlashAttention not yet implemented")
+
+    elif config.arch_type == "grouped_query_attention":
+        # TODO: Implement GQA
+        raise NotImplementedError("GQA not yet implemented")
+
+    elif config.arch_type == "mamba":
+        # TODO: Implement Mamba
+        raise NotImplementedError("Mamba not yet implemented")
+
+    elif config.arch_type == "rwkv":
+        # TODO: Implement RWKV
+        raise NotImplementedError("RWKV not yet implemented")
+
+    else:
+        raise ValueError(f"Unknown architecture type: {config.arch_type}")
+
+
+if __name__ == "__main__":
+    from search_space import get_baseline_architectures
+
+    print("="*60)
+    print("Model Architecture Test")
+    print("="*60)
+
+    # Test with baseline architectures
+    baselines = get_baseline_architectures()
+
+    for i, config in enumerate(baselines[:3], 1):  # Test first 3
+        print(f"\n[{i}] Testing {config.arch_type}...")
+
+        try:
+            model = build_model(config)
+
+            # Count parameters
+            num_params = sum(p.numel() for p in model.parameters())
+
+            # Test forward pass
+            batch_size = 2
+            seq_len = 128
+            input_ids = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+
+            with torch.no_grad():
+                logits = model(input_ids)
+
+            print(f"  [OK] Model built successfully")
+            print(f"  Parameters: {num_params:,} ({num_params/1e6:.1f}M)")
+            print(f"  Estimated: {config.estimate_parameters():,}")
+            print(f"  Output shape: {logits.shape}")
+            print(f"  Expected: ({batch_size}, {seq_len}, {config.vocab_size})")
+
+            assert logits.shape == (batch_size, seq_len, config.vocab_size)
+            print(f"  [OK] Forward pass successful")
+
+        except NotImplementedError as e:
+            print(f"  [SKIP] {e}")
+        except Exception as e:
+            print(f"  [ERROR] {e}")
+            raise
+
+    print(f"\n{'='*60}")
+    print("All tests passed!")
+    print("="*60)
+"""
+Neural Architecture Search - Search Space Definition
+
+MIT CS PhD レベルの探索空間設計
+"""
+
+from typing import Dict, List, Any, Tuple
+from dataclasses import dataclass, field
+import random
+import json
+
+
+@dataclass
+class ArchitectureConfig:
+    """アーキテクチャ設定"""
+
+    # Architecture type
+    arch_type: str  # "transformer", "linear_transformer", "mamba", etc.
+
+    # Model size
+    num_layers: int
+    hidden_dim: int
+    num_heads: int
+    ffn_multiplier: float
+
+    # Components
+    normalization: str  # "layernorm", "rmsnorm", "groupnorm"
+    activation: str  # "gelu", "silu", "geglu", "swiglu"
+    position_encoding: str  # "absolute", "rope", "alibi"
+
+    # Attention details
+    attention_dropout: float = 0.1
+    residual_dropout: float = 0.1
+
+    # Vocabulary
+    vocab_size: int = 50000
+    max_seq_length: int = 2048
+
+    # Quantization (for final model)
+    quantization: str = "fp16"  # "fp16", "int8", "int4"
+    pruning_ratio: float = 0.0  # 0.0 to 0.6
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            "arch_type": self.arch_type,
+            "num_layers": self.num_layers,
+            "hidden_dim": self.hidden_dim,
+            "num_heads": self.num_heads,
+            "ffn_multiplier": self.ffn_multiplier,
+            "normalization": self.normalization,
+            "activation": self.activation,
+            "position_encoding": self.position_encoding,
+            "attention_dropout": self.attention_dropout,
+            "residual_dropout": self.residual_dropout,
+            "vocab_size": self.vocab_size,
+            "max_seq_length": self.max_seq_length,
+            "quantization": self.quantization,
+            "pruning_ratio": self.pruning_ratio
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> 'ArchitectureConfig':
+        """Create from dictionary"""
+        return cls(**d)
+
+    def estimate_parameters(self) -> int:
+        """
+        パラメータ数の推定
+
+        Transformer の場合:
+        - Embedding: vocab_size * hidden_dim
+        - Each layer:
+            - Attention: 4 * hidden_dim^2
+            - FFN: 2 * hidden_dim * (ffn_multiplier * hidden_dim)
+        """
+        # Embedding
+        params = self.vocab_size * self.hidden_dim
+
+        # Layers
+        for _ in range(self.num_layers):
+            # Attention (Q, K, V, O)
+            params += 4 * self.hidden_dim * self.hidden_dim
+
+            # FFN
+            ffn_dim = int(self.hidden_dim * self.ffn_multiplier)
+            params += 2 * self.hidden_dim * ffn_dim
+
+            # Layer norm (x2)
+            params += 2 * self.hidden_dim
+
+        # Final layer norm
+        params += self.hidden_dim
+
+        # LM head
+        params += self.hidden_dim * self.vocab_size
+
+        return params
+
+    def estimate_size_mb(self) -> float:
+        """
+        モデルサイズの推定（MB）
+        """
+        params = self.estimate_parameters()
+
+        # Quantization
+        if self.quantization == "fp16":
+            bytes_per_param = 2
+        elif self.quantization == "int8":
+            bytes_per_param = 1
+        elif self.quantization == "int4":
+            bytes_per_param = 0.5
+        else:
+            bytes_per_param = 4  # fp32
+
+        # Pruning
+        effective_params = params * (1.0 - self.pruning_ratio)
+
+        size_bytes = effective_params * bytes_per_param
+        size_mb = size_bytes / (1024 * 1024)
+
+        return size_mb
+
+    def is_valid(self) -> Tuple[bool, str]:
+        """
+        設定の妥当性チェック
+
+        Returns:
+            (is_valid, error_message)
+        """
+        # Hidden dim must be divisible by num_heads
+        if self.hidden_dim % self.num_heads != 0:
+            return False, f"hidden_dim ({self.hidden_dim}) must be divisible by num_heads ({self.num_heads})"
+
+        # Model size check (target: 50-100MB)
+        size_mb = self.estimate_size_mb()
+        if size_mb > 500:  # 500MB を超えたら警告
+            return False, f"Model size ({size_mb:.1f} MB) too large"
+
+        return True, ""
+
+
+class SearchSpace:
+    """
+    NAS 探索空間の定義
+
+    MIT CS PhD レベルの設計:
+    - 最新論文の知見を統合
+    - 効率的な探索戦略
+    - 理論的裏付け
+    """
+
+    def __init__(self, mode: str = "full"):
+        """
+        Args:
+            mode: "minimal", "medium", "full"
+                - minimal: 高速テスト用（10^3 通り）
+                - medium: 中規模探索（10^6 通り）
+                - full: 完全探索（10^9 通り）
+        """
+        self.mode = mode
+        self.space = self._define_space(mode)
+
+    def _define_space(self, mode: str) -> Dict[str, List[Any]]:
+        """探索空間の定義"""
+
+        if mode == "minimal":
+            return {
+                "arch_type": ["transformer"],
+                "num_layers": [4, 6],
+                "hidden_dim": [256, 512],
+                "num_heads": [4, 8],
+                "ffn_multiplier": [4.0],
+                "normalization": ["layernorm"],
+                "activation": ["gelu"],
+                "position_encoding": ["absolute"],
+                "attention_dropout": [0.1],
+                "residual_dropout": [0.1],
+                "quantization": ["fp16"],
+                "pruning_ratio": [0.0]
+            }
+
+        elif mode == "medium":
+            return {
+                "arch_type": ["transformer", "linear_transformer"],
+                "num_layers": [4, 6, 8, 12],
+                "hidden_dim": [256, 384, 512, 768],
+                "num_heads": [4, 6, 8, 12],
+                "ffn_multiplier": [2.0, 3.0, 4.0],
+                "normalization": ["layernorm", "rmsnorm"],
+                "activation": ["gelu", "silu"],
+                "position_encoding": ["absolute", "rope"],
+                "attention_dropout": [0.0, 0.1],
+                "residual_dropout": [0.0, 0.1],
+                "quantization": ["fp16", "int8"],
+                "pruning_ratio": [0.0, 0.2, 0.4]
+            }
+
+        else:  # full
+            return {
+                "arch_type": [
+                    "transformer",
+                    "linear_transformer",
+                    "flash_attention",
+                    "grouped_query_attention",
+                    "mamba",
+                    "rwkv"
+                ],
+                "num_layers": [2, 4, 6, 8, 12, 16],
+                "hidden_dim": [128, 256, 384, 512, 768, 1024],
+                "num_heads": [2, 4, 6, 8, 12, 16],
+                "ffn_multiplier": [2.0, 2.5, 3.0, 4.0],
+                "normalization": ["layernorm", "rmsnorm", "groupnorm"],
+                "activation": ["gelu", "silu", "geglu", "swiglu"],
+                "position_encoding": ["absolute", "rope", "alibi"],
+                "attention_dropout": [0.0, 0.05, 0.1, 0.2],
+                "residual_dropout": [0.0, 0.05, 0.1, 0.2],
+                "quantization": ["fp16", "int8", "int4"],
+                "pruning_ratio": [0.0, 0.2, 0.4, 0.6]
+            }
+
+    def sample_random(self) -> ArchitectureConfig:
+        """ランダムにアーキテクチャをサンプリング"""
+        config = {}
+        for key, values in self.space.items():
+            config[key] = random.choice(values)
+
+        arch = ArchitectureConfig(**config)
+
+        # Validity check
+        is_valid, error = arch.is_valid()
+        if not is_valid:
+            # Retry with adjusted parameters
+            if "hidden_dim" in error and "num_heads" in error:
+                # Adjust num_heads to be divisible
+                while config["hidden_dim"] % config["num_heads"] != 0:
+                    config["num_heads"] = random.choice(self.space["num_heads"])
+                arch = ArchitectureConfig(**config)
+
+        return arch
+
+    def sample_smart(self, base_config: ArchitectureConfig = None) -> ArchitectureConfig:
+        """
+        スマートサンプリング（既知の良い設定の近傍を探索）
+
+        Args:
+            base_config: 基準となる設定（Noneの場合はベストプラクティス）
+        """
+        if base_config is None:
+            # Best practice baseline (LLaMA-like)
+            base_config = ArchitectureConfig(
+                arch_type="transformer",
+                num_layers=6,
+                hidden_dim=512,
+                num_heads=8,
+                ffn_multiplier=2.5,
+                normalization="rmsnorm",
+                activation="swiglu",
+                position_encoding="rope"
+            )
+
+        # Mutate slightly
+        config = base_config.to_dict()
+
+        # Choose 1-3 parameters to mutate
+        num_mutations = random.randint(1, 3)
+        keys_to_mutate = random.sample(list(self.space.keys()), num_mutations)
+
+        for key in keys_to_mutate:
+            config[key] = random.choice(self.space[key])
+
+        arch = ArchitectureConfig(**config)
+
+        # Validity check
+        is_valid, error = arch.is_valid()
+        if not is_valid:
+            # Fall back to random sampling
+            return self.sample_random()
+
+        return arch
+
+    def get_search_space_size(self) -> int:
+        """探索空間のサイズを計算"""
+        size = 1
+        for values in self.space.values():
+            size *= len(values)
+        return size
+
+
+def get_baseline_architectures() -> List[ArchitectureConfig]:
+    """
+    ベースラインアーキテクチャ（既知の良い設定）
+
+    Returns:
+        List of baseline configurations
+    """
+    baselines = []
+
+    # 1. GPT-2 Small-like (but smaller)
+    baselines.append(ArchitectureConfig(
+        arch_type="transformer",
+        num_layers=6,
+        hidden_dim=384,
+        num_heads=6,
+        ffn_multiplier=4.0,
+        normalization="layernorm",
+        activation="gelu",
+        position_encoding="absolute"
+    ))
+
+    # 2. LLaMA-style (efficient)
+    baselines.append(ArchitectureConfig(
+        arch_type="transformer",
+        num_layers=6,
+        hidden_dim=512,
+        num_heads=8,
+        ffn_multiplier=2.5,
+        normalization="rmsnorm",
+        activation="swiglu",
+        position_encoding="rope"
+    ))
+
+    # 3. Ultra-small (50MB target)
+    baselines.append(ArchitectureConfig(
+        arch_type="transformer",
+        num_layers=4,
+        hidden_dim=256,
+        num_heads=4,
+        ffn_multiplier=2.0,
+        normalization="rmsnorm",
+        activation="silu",
+        position_encoding="rope",
+        quantization="int8",
+        pruning_ratio=0.4
+    ))
+
+    # 4. Mamba (State Space Model)
+    baselines.append(ArchitectureConfig(
+        arch_type="mamba",
+        num_layers=6,
+        hidden_dim=512,
+        num_heads=8,  # Mamba doesn't use heads, but keep for compatibility
+        ffn_multiplier=4.0,
+        normalization="rmsnorm",
+        activation="silu",
+        position_encoding="absolute"  # SSM doesn't need positional encoding
+    ))
+
+    return baselines
+
+
+if __name__ == "__main__":
+    # Test
+    print("=" * 60)
+    print("NAS Search Space Test")
+    print("=" * 60)
+
+    # Test different modes
+    for mode in ["minimal", "medium", "full"]:
+        space = SearchSpace(mode=mode)
+        size = space.get_search_space_size()
+        print(f"\n{mode.upper()} mode: {size:,} possible configurations")
+
+        # Sample random
+        arch = space.sample_random()
+        print(f"Random sample:")
+        print(f"  Type: {arch.arch_type}")
+        print(f"  Layers: {arch.num_layers}")
+        print(f"  Hidden: {arch.hidden_dim}")
+        print(f"  Parameters: {arch.estimate_parameters():,}")
+        print(f"  Size: {arch.estimate_size_mb():.1f} MB")
+
+    # Test baselines
+    print("\n" + "=" * 60)
+    print("Baseline Architectures")
+    print("=" * 60)
+
+    baselines = get_baseline_architectures()
+    for i, arch in enumerate(baselines, 1):
+        print(f"\nBaseline {i}: {arch.arch_type}")
+        print(f"  Layers: {arch.num_layers}, Hidden: {arch.hidden_dim}")
+        print(f"  Norm: {arch.normalization}, Act: {arch.activation}")
+        print(f"  Parameters: {arch.estimate_parameters():,}")
+        print(f"  Size: {arch.estimate_size_mb():.1f} MB")
+
+        is_valid, error = arch.is_valid()
+        print(f"  Valid: {is_valid}")
+        if not is_valid:
+            print(f"  Error: {error}")
+"""
+Training loop for NAS evaluation
+
+Real training of architecture candidates on code LM task
+"""
+
+from typing import Dict
+import time
+import torch
+import torch.nn as nn
+from torch.optim import AdamW
+
+from search_space import ArchitectureConfig
+from models import build_model
+from datasets import CodeCharDatasetConfig, build_code_char_loaders
+
+
+def train_one_architecture(
+    arch_cfg: ArchitectureConfig,
+    data_cfg: CodeCharDatasetConfig,
+    device: str = "cuda:0",
+    max_steps: int = 500,
+    lr: float = 3e-4,
+    grad_clip: float = 1.0,
+    log_interval: int = 100
+) -> Dict[str, float]:
+    """
+    Train a single architecture and return metrics
+
+    Args:
+        arch_cfg: Architecture configuration
+        data_cfg: Dataset configuration
+        device: Device to train on
+        max_steps: Maximum training steps
+        lr: Learning rate
+        grad_clip: Gradient clipping value
+        log_interval: Log every N steps
+
+    Returns:
+        Dictionary with metrics:
+        - val_loss: Validation loss
+        - val_ppl: Validation perplexity
+        - train_loss: Final training loss
+        - num_params: Number of parameters
+        - model_size_mb: Model size in MB
+        - latency_ms: Inference latency
+        - train_time_s: Training time in seconds
+    """
+    print(f"\n[TRAIN] Starting training...")
+    print(f"  Architecture: {arch_cfg.arch_type}")
+    print(f"  Layers: {arch_cfg.num_layers}, Hidden: {arch_cfg.hidden_dim}")
+    print(f"  Device: {device}")
+    print(f"  Max steps: {max_steps}")
+
+    # Build data loaders
+    train_loader, val_loader, vocab = build_code_char_loaders(data_cfg)
+
+    # Update architecture config with actual vocab size
+    arch_cfg.vocab_size = vocab.vocab_size
+    arch_cfg.max_seq_length = data_cfg.seq_len
+
+    # Build model
+    print(f"\n[MODEL] Building model...")
+    try:
+        model = build_model(arch_cfg).to(device)
+    except NotImplementedError as e:
+        print(f"  [WARNING] {e}")
+        print(f"  [WARNING] Using simple fallback model")
+        # Use simple model
+        from evaluator import Evaluator
+        evaluator = Evaluator()
+        model = evaluator._build_simple_model(arch_cfg)
+
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"  Parameters: {num_params:,} ({num_params/1e6:.1f}M)")
+
+    # Optimizer
+    optimizer = AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+    loss_fn = nn.CrossEntropyLoss()
+
+    # Training loop
+    model.train()
+    step = 0
+    total_loss = 0.0
+    t0 = time.time()
+
+    print(f"\n[TRAIN] Training for {max_steps} steps...")
+
+    for epoch in range(100):  # Max epochs (will break early)
+        for batch_idx, (x, y) in enumerate(train_loader):
+            x, y = x.to(device), y.to(device)  # (B, T)
+
+            # Forward
+            logits = model(x)  # (B, T, V)
+
+            # Loss
+            loss = loss_fn(
+                logits.view(-1, logits.size(-1)),
+                y.view(-1)
+            )
+
+            # Backward
+            optimizer.zero_grad()
+            loss.backward()
+            if grad_clip > 0:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+            optimizer.step()
+
+            total_loss += loss.item()
+            step += 1
+
+            # Log
+            if step % log_interval == 0:
+                avg_loss = total_loss / log_interval
+                ppl = torch.exp(torch.tensor(avg_loss)).item()
+                print(f"  Step {step}/{max_steps}: loss={avg_loss:.4f}, ppl={ppl:.2f}")
+                total_loss = 0.0
+
+            # Stop if max steps reached
+            if step >= max_steps:
+                break
+
+        if step >= max_steps:
+            break
+
+    train_time = time.time() - t0
+    print(f"[TRAIN] Training complete: {train_time:.1f}s")
+
+    # Validation
+    print(f"\n[EVAL] Running validation...")
+    model.eval()
+    val_loss = 0.0
+    val_tokens = 0
+
+    with torch.no_grad():
+        for x, y in val_loader:
+            x, y = x.to(device), y.to(device)
+
+            logits = model(x)
+            loss = loss_fn(
+                logits.view(-1, logits.size(-1)),
+                y.view(-1)
+            )
+
+            val_loss += loss.item() * y.numel()
+            val_tokens += y.numel()
+
+    val_loss /= val_tokens
+    val_ppl = torch.exp(torch.tensor(val_loss)).item()
+
+    print(f"  Validation loss: {val_loss:.4f}")
+    print(f"  Validation perplexity: {val_ppl:.2f}")
+
+    # Model size
+    model_size_mb = arch_cfg.estimate_size_mb()
+
+    # Latency measurement
+    print(f"\n[LATENCY] Measuring inference latency...")
+    model.eval()
+
+    # Get a sample batch
+    x_sample, _ = next(iter(val_loader))
+    x_sample = x_sample.to(device)
+
+    # Warmup
+    with torch.no_grad():
+        for _ in range(10):
+            _ = model(x_sample)
+
+    # Measure
+    if torch.cuda.is_available():
+        torch.cuda.synchronize(device)
+
+    t1 = time.time()
+
+    with torch.no_grad():
+        for _ in range(100):
+            _ = model(x_sample)
+
+    if torch.cuda.is_available():
+        torch.cuda.synchronize(device)
+
+    latency_ms = (time.time() - t1) / 100 * 1000
+
+    print(f"  Latency: {latency_ms:.2f}ms per batch")
+
+    # Return metrics
+    metrics = {
+        "val_loss": float(val_loss),
+        "val_ppl": float(val_ppl),
+        "train_loss": float(total_loss / max(log_interval, 1)),
+        "num_params": float(num_params),
+        "model_size_mb": float(model_size_mb),
+        "latency_ms": float(latency_ms),
+        "train_time_s": float(train_time),
+    }
+
+    print(f"\n[METRICS] Summary:")
+    for k, v in metrics.items():
+        print(f"  {k}: {v}")
+
+    return metrics
+
+
+if __name__ == "__main__":
+    from search_space import get_baseline_architectures
+
+    print("="*60)
+    print("Training Loop Test")
+    print("="*60)
+
+    # Get a small baseline
+    baselines = get_baseline_architectures()
+    arch_cfg = baselines[2]  # Ultra-small model
+
+    # Data config
+    data_cfg = CodeCharDatasetConfig(
+        train_path="../data/code_char/train.txt",
+        val_path="../data/code_char/val.txt",
+        seq_len=128,
+        batch_size=16
+    )
+
+    # Train
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    metrics = train_one_architecture(
+        arch_cfg,
+        data_cfg,
+        device=device,
+        max_steps=100,  # Quick test
+        lr=3e-4
+    )
+
+    print("\n" + "="*60)
+    print("Training test complete!")
+    print("="*60)

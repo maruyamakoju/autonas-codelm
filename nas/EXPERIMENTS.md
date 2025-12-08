@@ -257,7 +257,30 @@ python compare_experiments.py logs/code_nas_v1_single logs/code_nas_v2_two_stage
 
 ### 実測結果 (2024-12)
 
-**[実行中...結果は後で追記]**
+| メトリック | 値 | 備考 |
+|-----------|-----|------|
+| **Best Fitness** | 1.0000 | ✅ 完璧なスコア |
+| **Architecture** | Transformer L4 H384 | Heads=4, FFN×2.0, SiLU, RoPE |
+| **Parameters** | 4.80M | v1 (2.68M) より大きい |
+| **Model Size** | 7.32 MB | v1 (3.06 MB) より大きい |
+| **Val Loss** | 0.0142 | v1 (0.0188) より**良い** |
+| **Val PPL** | 1.01 | v1 (1.02) より良い |
+| **Accuracy** | 98.59% | v1 (98.14%) より0.45%高い |
+| **Latency** | 3.53 ms | v1 (3.01 ms) より遅い |
+| **Train Time** | 3.52 s | v1 (5.03 s) より速い |
+| **Generations** | 8 | Population=24, Stage1=50, Stage2=300 |
+
+#### v1 vs v2 比較
+
+```bash
+python compare_experiments.py
+```
+
+**結論**:
+- v2は**精度でv1を上回る**（Val Loss 0.0142 vs 0.0188）
+- しかし**サイズとレイテンシではv1が優れる**（3.06MB vs 7.32MB）
+- Two-stage NASは精度重視の探索に有効
+- **実用的には軽量性を重視してv1を推奨**
 
 ---
 

@@ -32,6 +32,15 @@ cd nas\scripts
 - Stage 1 (50 steps): Screen 24 architectures → ~1 min/arch
 - Stage 2 (300 steps): Evaluate top 6 → ~3-5 min/arch
 
+### Quick Status (All Experiments)
+
+```bash
+cd nas
+python quick_status.py
+```
+
+**Output**: Status, fitness, architecture, and metrics for all experiments.
+
 ### Compare v1 vs v2
 
 ```bash
@@ -46,25 +55,34 @@ python compare_experiments.py
 ### v1 Single-stage NAS (✅ Completed)
 
 **Best Architecture**: 4-layer Transformer
-**Config**: L4 H512 Heads=8 FFN×4 gelu sinusoidal
+**Config**: L4 H256 Heads=8 FFN×3.0 gelu rope
 **Metrics**:
 - Fitness: 1.0000 🏆
-- Parameters: 2.68M (2.68M estimated)
-- Model Size: 10.4 MB
-- Val Loss: 0.6931
-- Val Perplexity: 2.00
-- Accuracy: 100.00%
-- Latency: 1.52 ms (RTX 5090)
-- Train Time: 13.48s (300 steps)
+- Parameters: 2.68M
+- Model Size: 3.06 MB ⭐ Most lightweight!
+- Val Loss: 0.0188
+- Val Perplexity: 1.02
+- Accuracy: 98.14%
+- Latency: 3.01 ms (RTX 5090)
+- Train Time: 5.03s (300 steps)
 
 **Commit**: `1642e97` - "CodeNAS v1 complete: best 2.68M param transformer (fitness=1.0)"
 
-### v2 Two-stage NAS (🔄 Running)
+### v2 Two-stage NAS (✅ Completed)
 
-**Status**: Gen 0 Stage 1 (GPU 94% utilization, 9GB VRAM)
-**Expected completion**: ~30-45 min (8 generations)
+**Best Architecture**: 4-layer Transformer
+**Config**: L4 H384 Heads=4 FFN×2.0 silu rope
+**Metrics**:
+- Fitness: 1.0000 🏆
+- Parameters: 4.80M
+- Model Size: 7.32 MB
+- Val Loss: 0.0142 (better than v1!)
+- Val Perplexity: 1.01
+- Accuracy: 98.59% (better than v1!)
+- Latency: 3.53 ms
+- Train Time: 3.52s
 
-**Experiment logs**: `nas/logs/code_nas_v2_two_stage/`
+**Conclusion**: v2 achieves higher accuracy but v1 is more lightweight (3.06MB vs 7.32MB)
 
 ---
 
@@ -143,6 +161,7 @@ Latency (ms)                     1.52                     1.52
 │   ├── search_space.py             # Search space definition
 │   ├── models.py                   # Model implementations
 │   ├── compare_experiments.py      # v1 vs v2 comparison tool
+│   ├── quick_status.py             # Quick experiment status summary
 │   │
 │   ├── scripts/                    # Production scripts
 │   │   ├── run_codenas_v1_single.ps1

@@ -213,7 +213,16 @@ position_encoding: rope
 | batch_size | 32 | バッチサイズ |
 | device | cuda:0 | 使用GPU |
 
-### コマンドライン実行
+### PowerShell実行（推奨）
+```powershell
+cd nas\scripts
+.\run_codenas_v2_two_stage.ps1
+
+# カスタムパラメータ指定
+.\run_codenas_v2_two_stage.ps1 -Population 32 -Generations 10 -TopK 8
+```
+
+### コマンドライン実行（直接）
 ```bash
 python evolution.py \
   --experiment_name "code_nas_v2_two_stage" \
@@ -239,6 +248,10 @@ python evolution.py \
 
 ### 比較ツール
 ```bash
+# v1 vs v2を比較（引数なしでデフォルト比較）
+python compare_experiments.py
+
+# または明示的に指定
 python compare_experiments.py logs/code_nas_v1_single logs/code_nas_v2_two_stage
 ```
 

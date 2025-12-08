@@ -79,11 +79,10 @@ python compare_experiments.py
 
 **Current Production Model**: `nas/models/codenas_best_current.json` (v1 single-stage)
 
-**Full Training**: Use `train_best.py` to train the best architecture for production:
-```bash
-cd nas
-python train_best.py --arch_json models/codenas_best_current.json --experiment_name v1_production --max_steps 10000
-```
+**Trained Model**: `logs/train_v1_production/v1_production_best.pt`
+- Val Loss: 0.0065, Val PPL: 1.01
+- Training: 10,000 steps, 9.6 min
+- Ready for inference with `eval_playground.py`
 
 ### v2 Two-stage NAS (✅ Completed)
 

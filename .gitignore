@@ -40,6 +40,8 @@ screenshot.png
 # Model cache (Hugging Face)
 .cache/
 models/
+# NAS best architectures are kept
+!nas/models/
 
 # Logs
 *.log

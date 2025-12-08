@@ -115,7 +115,89 @@ python evolution.py \
 
 ---
 
-## 5. Sanity Check (並列 vs 非並列)
+## 5. CodeNAS v1 (Production Single GPU)
+
+**本番実験用設定。1GPUで本格的なアーキテクチャ探索を実行。**
+
+### 設定値
+| パラメータ | 値 | 説明 |
+|-----------|-----|------|
+| population | 24 | 世代あたりの個体数 |
+| generations | 8 | 進化世代数 |
+| search_mode | medium | 探索空間（より多様なアーキテクチャ） |
+| max_train_steps | 300 | 各アーキテクチャの訓練ステップ数 |
+| seq_len | 256 | シーケンス長 |
+| batch_size | 32 | バッチサイズ |
+| device | cuda:0 | 使用GPU |
+
+### PowerShellスクリプト実行
+```powershell
+cd nas\scripts
+.\run_codenas_v1_single.ps1
+```
+
+### パラメータ指定実行
+```powershell
+.\run_codenas_v1_single.ps1 -Population 32 -Generations 10
+```
+
+### コマンドライン直接実行
+```bash
+python evolution.py \
+  --experiment_name "code_nas_v1_single" \
+  --population 24 \
+  --generations 8 \
+  --use_real_training \
+  --train_path "../data/code_char/train.txt" \
+  --val_path "../data/code_char/val.txt" \
+  --seq_len 256 \
+  --batch_size 32 \
+  --max_train_steps 300 \
+  --device "cuda:0" \
+  --search_mode "medium"
+```
+
+### 期待される結果
+- 実行時間: 1.5〜3時間
+- 期待Fitness: 1.0
+- 出力: `logs/code_nas_v1_single/evolution/best_architecture.json`
+
+### 実測結果 (2024-12)
+
+| 指標 | 値 |
+|------|-----|
+| Best Fitness | 1.0000 |
+| Val Loss | 0.0188 |
+| Val PPL | 1.02 |
+| Accuracy | 98.14% |
+| Params | 2.68M |
+| Model Size | 3.06 MB |
+| Latency | 3.0 ms |
+| Evaluated | 144 archs (6 gen) |
+| Runtime | ~15-20 min |
+
+**Best Architecture:**
+- `models/codenas_v1_best_transformer.json`
+
+```
+arch_type: transformer
+num_layers: 4
+hidden_dim: 256
+num_heads: 8
+ffn_multiplier: 3.0
+normalization: rmsnorm
+activation: gelu
+position_encoding: rope
+```
+
+> 短いコードコーパス（1.3MB accelerate）+ 300 steps + 小モデル優位のため予想より短時間で完了。
+> Gen 0で既にfitness=1.0達成、以降も同等の精度を維持。
+
+---
+
+## 6. Sanity Check (並列 vs 非並列)
+
+> **結果**: PASSED (2024-12) - Sequential: 1.0, Parallel: 1.0
 
 ```bash
 cd nas
@@ -133,7 +215,7 @@ cat logs/sanity_par/evolution/best_architecture.json | python -c "import sys,jso
 
 ---
 
-## 6. Analysis Tools
+## 7. Analysis Tools
 
 ### 並列ログ解析
 ```bash
@@ -167,7 +249,7 @@ for h in data:
 
 ---
 
-## 7. GPU Status Check
+## 8. GPU Status Check
 
 ```bash
 # GPU状態確認
@@ -187,7 +269,7 @@ for i in range(torch.cuda.device_count()):
 
 ---
 
-## 8. Directory Structure
+## 9. Directory Structure
 
 ```
 nas/
@@ -219,7 +301,7 @@ nas/
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 ### OOM (Out of Memory)
 ```bash
@@ -248,7 +330,7 @@ max_eval_time_s=7200.0  # 2 hours
 
 ---
 
-## 10. Expected Results
+## 11. Expected Results
 
 | 設定 | 期待Fitness | 期待時間 |
 |------|-------------|----------|

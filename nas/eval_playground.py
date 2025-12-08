@@ -54,10 +54,11 @@ def build_vocab(train_path: str = "../data/code_char/train.txt") -> CodeCharVoca
 
 def load_model(
     model_path: Path,
+    checkpoint_path: Optional[Path] = None,
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 ) -> tuple:
     """Load model and vocabulary."""
-    print(f"[LOAD] Loading model from {model_path.name}...")
+    print(f"[LOAD] Loading architecture from {model_path.name}...")
 
     # Load architecture
     arch, meta = load_arch_config(model_path)
@@ -72,9 +73,21 @@ def load_model(
     # Build model
     model = build_model(config)
     model.to(device)
+
+    # Load trained weights if checkpoint provided
+    if checkpoint_path and checkpoint_path.exists():
+        print(f"[LOAD] Loading trained weights from {checkpoint_path.name}...")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        val_loss = checkpoint.get("val_loss", "N/A")
+        step = checkpoint.get("step", "N/A")
+        print(f"[LOAD] Checkpoint: Step {step}, Val Loss: {val_loss}")
+    else:
+        print(f"[LOAD] No checkpoint found - using random initialization")
+
     model.eval()
 
-    print(f"[LOAD] Model loaded: {config.arch_type} L{config.num_layers} H{config.hidden_dim}")
+    print(f"[LOAD] Model: {config.arch_type} L{config.num_layers} H{config.hidden_dim}")
     print(f"[LOAD] Parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")
     print(f"[LOAD] Device: {device}")
     print(f"[LOAD] Vocab size: {vocab.vocab_size}")
@@ -179,6 +192,12 @@ def main():
         help="Path to model JSON file (default: models/codenas_best_current.json)"
     )
     parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default="logs/train_v1_production/v1_production_best.pt",
+        help="Path to trained checkpoint (default: logs/train_v1_production/v1_production_best.pt)"
+    )
+    parser.add_argument(
         "--max_tokens",
         type=int,
         default=64,
@@ -225,7 +244,15 @@ def main():
     print("=" * 70)
     print(" CodeNAS v1 Playground")
     print("=" * 70)
-    model, vocab, config, device = load_model(model_path, args.device)
+
+    # Check checkpoint path
+    checkpoint_path = Path(args.checkpoint) if args.checkpoint else None
+
+    model, vocab, config, device = load_model(
+        model_path,
+        checkpoint_path=checkpoint_path,
+        device=args.device
+    )
 
     # Interactive loop
     print("Enter code snippet (or 'quit' to exit):")

@@ -297,6 +297,62 @@ python visualize_architecture.py logs/code_nas_v2_two_stage/evolution/best_archi
 
 ---
 
+## 5.6 v1 Production Training (Full Training)
+
+**本命アーキテクチャ（v1）の本格訓練**
+
+### 設定値
+| パラメータ | 値 | 説明 |
+|-----------|-----|------|
+| architecture | v1 single-stage | L4 H256 Heads=8 FFN×3.0 |
+| max_steps | 10,000 | 本番用長時間訓練 |
+| learning_rate | 3e-4 → 1e-5 | Cosine decay with warmup |
+| warmup_steps | 500 | LR warmup |
+| batch_size | 32 | |
+| seq_len | 256 | |
+| device | cuda:0 | RTX 5090 |
+
+### コマンド実行
+```bash
+python train_best.py \
+  --arch_json models/codenas_best_current.json \
+  --experiment_name v1_production \
+  --max_steps 10000 \
+  --log_dir logs/train_v1_production
+```
+
+### 実測結果 (2024-12)
+
+| メトリック | 値 | 備考 |
+|-----------|-----|------|
+| **Final Val Loss** | 0.0065 | Best: 0.0065 |
+| **Final Val PPL** | 1.01 | 非常に低い |
+| **Parameters** | 2.68M | |
+| **Model Size** | 5.10 MB | 推定値 |
+| **Latency** | 2.97 ms | RTX 5090 |
+| **Training Time** | 9.6 min | 10,000 steps |
+| **Steps/sec** | 18.5 (avg) | 初期56→後半18 |
+| **Checkpoint** | v1_production_best.pt | |
+
+### 学習曲線
+- Step 100: Loss 3.56 → PPL 35.11
+- Step 500: Loss 0.0175 → PPL 1.02 (warmup完了)
+- Step 1000: Loss 0.0098 → PPL 1.01
+- Step 5000: Loss 0.0069 → PPL 1.01
+- Step 10000: Loss 0.0053 → PPL 1.01 ✅
+
+### Playgroundテスト
+```bash
+python eval_playground.py
+# デフォルトで訓練済みモデル (v1_production_best.pt) をロード
+```
+
+**生成品質**: 限定的（単純なパターン生成）
+- 理由: 訓練データが小さい（1.3MB Python code）
+- 改善策: より大きなデータセット、より長い訓練
+
+---
+
 ## 6. Sanity Check (並列 vs 非並列)
 
 > **結果**: PASSED (2024-12) - Sequential: 1.0, Parallel: 1.0

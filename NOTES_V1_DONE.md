@@ -97,7 +97,7 @@ This project successfully demonstrated:
 - If continuing: Follow v2 Option A (LoRA + HumanEval/MBPP data)
 - If pausing: Project is fully documented, backed up, and ready for archival
 
-**GitHub backup**: Ready to push. Follow `GITHUB_BACKUP_INSTRUCTIONS.md` for 3-step backup process.
+**GitHub Repository**: https://github.com/maruyamakoju/autonas-codelm
 
 ---
 

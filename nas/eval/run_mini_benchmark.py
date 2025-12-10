@@ -168,7 +168,9 @@ def run_benchmark(
     model.load_state_dict(ckpt['model_state_dict'])
     model.eval()
 
-    print(f"Model loaded (step {ckpt['step']}, val_loss={ckpt['val_loss']:.4f})")
+    step_info = f"step {ckpt['step']}" if 'step' in ckpt else "unknown step"
+    loss_info = f", val_loss={ckpt['val_loss']:.4f}" if 'val_loss' in ckpt else ""
+    print(f"Model loaded ({step_info}{loss_info})")
     print()
 
     # Load benchmark

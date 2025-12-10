@@ -64,4 +64,23 @@ This project successfully demonstrated:
 
 ---
 
-**Final Status**: v1 is complete and ready for archival or continuation.
+## Post-v1: Instruction Tuning Attempt (2025-12-10)
+
+**Tried the recommended small-scale instruction tuning** (49 samples, multiple training runs):
+
+- **v1+IT v2**: 3k steps, LR=5e-5, dynamic collate fix → 0/20 (no improvement)
+- **v1+IT v3**: 6k steps, LR=1e-4 (aggressive) → 0/20 (introduced mode collapse "return return")
+- **Result**: Small-scale instruction tuning (<100 samples) **completely failed** to improve task-solving
+
+**Root cause**: 50k-step pre-training too dominant for 49-sample fine-tuning to override, regardless of LR/steps.
+
+**Conclusion**: "Cheap levers" (small data, hyperparameter tuning) exhausted. Next improvement requires:
+- **Large-scale data** (500-1000+ samples from HumanEval/MBPP)
+- **Parameter-efficient fine-tuning** (LoRA to prevent catastrophic forgetting)
+- **Bigger model** (50M-100M params) or **distillation** from stronger teacher
+
+**See**: `INSTRUCTION_TUNING_FAILURE_REPORT.md` for full analysis.
+
+---
+
+**Final Status**: v1 is complete and closed. Instruction tuning with small data confirmed unfeasible. Next step requires v2 approach.

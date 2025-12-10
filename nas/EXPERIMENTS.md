@@ -499,4 +499,294 @@ max_eval_time_s=7200.0  # 2 hours
 
 ---
 
-*Last updated: 2024-12*
+## 12. BigData Training (データ拡張実験)
+
+**目的**: データサイズを 1.3MB → 100MB+ に増やして、モード崩壊問題を解決する。
+
+### Step 1: 大規模Pythonコーパスを準備
+
+#### オプションA: The Stack dataset (推奨)
+
+```bash
+# HuggingFace The Stackから Pythonサブセットをダウンロード
+# https://huggingface.co/datasets/bigcode/the-stack
+
+# 例: 100MBサンプルをダウンロード (手動またはHF datasetsライブラリ)
+# ダウンロード先: data/raw_python/
+```
+
+#### オプションB: CodeSearchNet dataset
+
+```bash
+# https://github.com/github/CodeSearchNet
+# Python部分のみ抽出: data/raw_python/
+```
+
+#### オプションC: GitHub人気リポジトリ
+
+```bash
+# 例: requests, flask, django, numpy, pandas, scikit-learn
+cd data/raw_python
+git clone https://github.com/psf/requests.git
+git clone https://github.com/pallets/flask.git
+git clone https://github.com/django/django.git
+# など...
+```
+
+### Step 2: コーパスを char-level テキストに変換
+
+```bash
+cd nas
+
+# 生データから train/val を生成
+python scripts/prepare_python_corpus.py \
+  --src_dir ../data/raw_python \
+  --train_out ../data/code_char_big/train.txt \
+  --val_out ../data/code_char_big/val.txt \
+  --val_ratio 0.01 \
+  --min_file_size 100 \
+  --max_file_size 262144
+
+# 出力例:
+# [COLLECT] OK Collected 12,345 valid Python files
+# [WRITE] OK Train corpus: 12,222 files, 1,234,567 lines, 123.45 MB
+# [WRITE] OK Val corpus: 123 files, 12,345 lines, 1.23 MB
+```
+
+**期待されるデータサイズ**:
+- 最低: 50MB (小規模改善期待)
+- 推奨: 100-500MB (大幅改善期待)
+- 理想: 1GB+ (GPT-2レベルの品質期待)
+
+### Step 3: v1アーキテクチャで再学習
+
+```bash
+cd nas
+
+# 100K steps で学習 (現状の10倍)
+python train_best.py \
+  --arch_json models/codenas_best_current.json \
+  --experiment_name v1_bigdata_char \
+  --train_path ../data/code_char_big/train.txt \
+  --val_path ../data/code_char_big/val.txt \
+  --max_steps 100000 \
+  --log_dir logs/train_v1_bigdata_char \
+  --device cuda:0
+
+# ログ:
+# - Checkpoint: logs/train_v1_bigdata_char/v1_bigdata_char_best.pt
+# - TensorBoard: logs/train_v1_bigdata_char/events.out.tfevents.*
+```
+
+**学習時間 (概算)**:
+- 50MB データ: ~30-60分 (100K steps)
+- 100MB データ: ~60-120分
+- 500MB データ: ~3-6時間
+- 1GB データ: ~6-12時間
+
+### Step 4: 評価パイプラインで再検証
+
+```bash
+cd nas
+
+# バッチ評価
+python eval_playground.py \
+  --checkpoint logs/train_v1_bigdata_char/v1_bigdata_char_best.pt \
+  --eval_file eval/prompts/simple_python.txt \
+  --output eval/results_bigdata.jsonl
+
+# 解析
+python eval/inspect_results.py eval/results_bigdata.jsonl --show_quality_examples
+
+# 期待される改善:
+# - Mode collapse率: 85.2% → <30%
+# - Python keywords出現率: 0% → >50%
+# - 平均repetition比率: 92.22% → <30%
+```
+
+### Step 5: 結果をドキュメントに反映
+
+```bash
+# EVALUATION_SUMMARY.md に BigData 版の結果を追記
+# README.md の Phase 3 に進捗を更新
+```
+
+---
+
+## 13. 次のステップ (BigData 実験後)
+
+### BigData 実験が成功した場合
+→ さらにデータを増やして品質を向上
+→ Token-level modeling に移行して効率化
+
+### BigData 実験でも改善が不十分な場合
+→ Token-level modeling (BPE/SentencePiece) に切り替え
+→ Knowledge distillation (GPT-4 → student model)
+
+---
+
+## 14. BigData Training (データ拡張実験) 🔥 RECOMMENDED
+
+**Status**: Token-level infrastructure complete, ready for large-scale data
+**Goal**: Mode collapse解決 (85% → <10%) via 100MB-1GB Python corpus
+**Hardware**: RTX 5090 (heavy training OK)
+
+### Step 1: コーパス準備 (Char + Token 両対応)
+
+```bash
+cd nas
+
+# Option A: 既存データを再利用 (テスト用、7.92MB)
+python scripts/prepare_python_corpus.py \
+  --src_dir ../data/raw_python \
+  --char_train ../data/code_char_big/train.txt \
+  --char_val   ../data/code_char_big/val.txt \
+  --token_train ../data/code_token_big/train.txt \
+  --token_val   ../data/code_token_big/val.txt \
+  --mode both \
+  --val_ratio 0.01
+
+# Option B: 大規模データ収集 (本番用、100MB-1GB)
+# 1. データソースをダウンロード
+cd ../data/raw_python
+
+# The Stack dataset (推奨、高品質Python corpus)
+# https://huggingface.co/datasets/bigcode/the-stack
+# または GitHub repos を直接clone:
+git clone --depth 1 https://github.com/psf/requests.git
+git clone --depth 1 https://github.com/pallets/flask.git
+git clone --depth 1 https://github.com/django/django.git
+git clone --depth 1 https://github.com/scikit-learn/scikit-learn.git
+git clone --depth 1 https://github.com/pandas-dev/pandas.git
+git clone --depth 1 https://github.com/numpy/numpy.git
+# ... (15-20 repos で 100MB 達成可能)
+
+# 2. コーパス生成 (target_size_mb で容量制限)
+cd ../../nas
+python scripts/prepare_python_corpus.py \
+  --src_dir ../data/raw_python \
+  --char_train ../data/code_char_bigdata/train.txt \
+  --char_val   ../data/code_char_bigdata/val.txt \
+  --token_train ../data/code_token_bigdata/train.txt \
+  --token_val   ../data/code_token_bigdata/val.txt \
+  --mode both \
+  --val_ratio 0.01 \
+  --target_size_mb 500 \
+  --max_file_size 524288
+```
+
+**期待される出力**:
+```
+CHAR-LEVEL:
+  Total:  500 MB, 15M lines
+  Train:  495 MB (10,000 files)
+  Val:    5 MB (100 files)
+
+TOKEN-LEVEL:
+  Total:       500 MB, 250M tokens
+  Compression: 2.0x (chars/tokens)
+  Vocab size:  50,257 (gpt2)
+```
+
+### Step 2: Token-level BigData 実験 (推奨) ⭐⭐⭐⭐⭐
+
+```bash
+cd nas
+
+# スモークテスト (10K steps, ~1時間)
+python train_best.py \
+  --arch_json models/codenas_best_current.json \
+  --experiment_name v1_token_bigdata_smoke \
+  --train_path ../data/code_token_bigdata/train.txt \
+  --val_path   ../data/code_token_bigdata/val.txt \
+  --max_steps 10000 \
+  --warmup_steps 500 \
+  --use_tokens \
+  --log_dir logs/train_v1_token_bigdata_smoke \
+  --device cuda:0
+
+# 本番訓練 (100K steps, ~10-20時間、RTX 5090で高速)
+python train_best.py \
+  --arch_json models/codenas_best_current.json \
+  --experiment_name v1_token_bigdata_production \
+  --train_path ../data/code_token_bigdata/train.txt \
+  --val_path   ../data/code_token_bigdata/val.txt \
+  --max_steps 100000 \
+  --warmup_steps 2000 \
+  --lr 3e-4 \
+  --min_lr 1e-5 \
+  --use_tokens \
+  --log_dir logs/train_v1_token_bigdata_production \
+  --device cuda:0
+
+# 評価
+python eval_playground.py \
+  --checkpoint logs/train_v1_token_bigdata_production/v1_token_bigdata_production_best.pt \
+  --eval_file eval/prompts/simple_python.txt \
+  --output eval/results_token_bigdata.jsonl \
+  --mode token
+
+python eval/inspect_results.py eval/results_token_bigdata.jsonl --show_quality_examples
+```
+
+**期待される改善**:
+- Mode collapse: 100% → <10%
+- Python keywords: 0% → >90%
+- Val PPL: 1.036 → <1.01
+- 生成品質: Repetitive → Coherent code
+
+### Step 3: Char-level BigData 実験 (参考、非推奨)
+
+```bash
+# Char-level は 100MB でも不十分な可能性が高い
+# Token-level 推奨
+
+cd nas
+
+python train_best.py \
+  --arch_json models/codenas_best_current.json \
+  --experiment_name v1_char_bigdata \
+  --train_path ../data/code_char_bigdata/train.txt \
+  --val_path   ../data/code_char_bigdata/val.txt \
+  --max_steps 100000 \
+  --log_dir logs/train_v1_char_bigdata \
+  --device cuda:0
+```
+
+### Step 4: 比較分析
+
+```bash
+cd nas
+
+# Token-level vs Char-level 比較
+python compare_training_runs.py \
+  logs/train_v1_token_bigdata_production \
+  logs/train_v1_char_bigdata
+```
+
+### 実験パラメータ推奨値
+
+| Dataset Size | Char-level Steps | Token-level Steps | Training Time (RTX 5090) |
+|--------------|------------------|-------------------|--------------------------|
+| 7.92 MB | 5,000 | 5,000 | ~10 min |
+| 50 MB | 50,000 | 20,000 | ~2-4 hours |
+| 100 MB | 100,000 | 30,000 | ~4-8 hours |
+| 500 MB | 500,000 | 100,000 | ~20-40 hours |
+| 1 GB | 1,000,000 | 200,000 | ~40-80 hours |
+
+**Note**: Token-level は Char-level の 1/3-1/5 の steps で同等品質に到達
+
+### トラブルシューティング
+
+**Q: データダウンロードが遅い**
+A: GitHub repos の shallow clone を使う (`--depth 1`)
+
+**Q: メモリ不足**
+A: `--max_file_size` を下げる、または `--target_size_mb` を小さくする
+
+**Q: Mode collapse が解決しない**
+A: さらにデータ量を増やす (500MB → 1GB)、または Knowledge Distillation (Option C) を試す
+
+---
+
+*Last updated: 2025-12-09*

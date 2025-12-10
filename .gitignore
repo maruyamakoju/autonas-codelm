@@ -45,6 +45,7 @@ models/
 
 # Logs and checkpoints
 *.log
+/logs/
 
 # Model checkpoints (too large for GitHub, use Git LFS or external storage)
 *.pt

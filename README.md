@@ -492,7 +492,11 @@ python eval_playground.py \
   --arch_json models/codenas_l8h512_regularized.json
 ```
 
-**⚠️ Important**: Use few-shot prompts (1-2 example functions) to avoid mode collapse. Short prompts still collapse ~90%.
+**⚠️ Important Notes**:
+- **Model checkpoints** (*.pt files) are not included in this repository due to size (350MB+ each)
+  - You must train the model yourself using `train_best.py` (see STRONGREG_SUMMARY.md)
+  - Or download pre-trained checkpoints from [releases/external storage - link TBD]
+- Use few-shot prompts (1-2 example functions) to avoid mode collapse. Short prompts still collapse ~90%.
 
 **See Also**:
 - [STRONGREG_SUMMARY.md](STRONGREG_SUMMARY.md) - Phase 3 complete results

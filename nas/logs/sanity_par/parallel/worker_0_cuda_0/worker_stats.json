@@ -1,0 +1,9 @@
+{
+  "worker_id": 0,
+  "device": "cuda:0",
+  "tasks_completed": 18,
+  "tasks_failed": 0,
+  "total_eval_time_s": 782.923460483551,
+  "avg_eval_time_s": 43.495747804641724,
+  "uptime_s": 782.933507680893
+}

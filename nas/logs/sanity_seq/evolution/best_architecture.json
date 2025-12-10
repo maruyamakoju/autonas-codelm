@@ -1,0 +1,36 @@
+{
+  "raw_metrics": {
+    "val_loss": 0.028628359169325344,
+    "val_ppl": 1.02904212474823,
+    "accuracy": 0.9717775583267212,
+    "model_size_mb": 36.2099609375,
+    "latency_ms": 4.666833877563477,
+    "flops": 0,
+    "num_params": 25275904,
+    "train_time_s": 4.933789014816284
+  },
+  "normalized_scores": {
+    "s_loss": 1.0,
+    "s_size": 1.0,
+    "s_latency": 1.0
+  },
+  "fitness": 1.0,
+  "training_time_minutes": 1.0015855352083842,
+  "early_stopped": false,
+  "architecture": {
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "num_heads": 8,
+    "ffn_multiplier": 4.0,
+    "normalization": "rmsnorm",
+    "activation": "swiglu",
+    "position_encoding": "rope",
+    "attention_dropout": 0.1,
+    "residual_dropout": 0.1,
+    "vocab_size": 101,
+    "max_seq_length": 128,
+    "quantization": "fp16",
+    "pruning_ratio": 0.0
+  }
+}

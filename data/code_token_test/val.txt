@@ -1,0 +1,3630 @@
+from typing import List
+
+from fastapi import FastAPI, Query
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(q: List[str] = Query(default=["foo", "bar"])):
+    query_items = {"q": q}
+    return query_items
+# mypy: allow-untyped-defs
+from __future__ import annotations
+
+
+def test_doc():
+    """
+    >>> 10 > 5
+    True
+    """
+    assert False
+from pydantic.v1 import BaseModel
+
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    size: float
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# https://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
+import re
+from collections import namedtuple
+
+from boto3.exceptions import (
+    DynamoDBNeedsConditionError,
+    DynamoDBNeedsKeyConditionError,
+    DynamoDBOperationNotSupportedError,
+)
+
+ATTR_NAME_REGEX = re.compile(r'[^.\[\]]+(?![^\[]*\])')
+
+
+class ConditionBase:
+    expression_format = ''
+    expression_operator = ''
+    has_grouped_values = False
+
+    def __init__(self, *values):
+        self._values = values
+
+    def __and__(self, other):
+        if not isinstance(other, ConditionBase):
+            raise DynamoDBOperationNotSupportedError('AND', other)
+        return And(self, other)
+
+    def __or__(self, other):
+        if not isinstance(other, ConditionBase):
+            raise DynamoDBOperationNotSupportedError('OR', other)
+        return Or(self, other)
+
+    def __invert__(self):
+        return Not(self)
+
+    def get_expression(self):
+        return {
+            'format': self.expression_format,
+            'operator': self.expression_operator,
+            'values': self._values,
+        }
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            if self._values == other._values:
+                return True
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+class AttributeBase:
+    def __init__(self, name):
+        self.name = name
+
+    def __and__(self, value):
+        raise DynamoDBOperationNotSupportedError('AND', self)
+
+    def __or__(self, value):
+        raise DynamoDBOperationNotSupportedError('OR', self)
+
+    def __invert__(self):
+        raise DynamoDBOperationNotSupportedError('NOT', self)
+
+    def eq(self, value):
+        """Creates a condition where the attribute is equal to the value.
+
+        :param value: The value that the attribute is equal to.
+        """
+        return Equals(self, value)
+
+    def lt(self, value):
+        """Creates a condition where the attribute is less than the value.
+
+        :param value: The value that the attribute is less than.
+        """
+        return LessThan(self, value)
+
+    def lte(self, value):
+        """Creates a condition where the attribute is less than or equal to the
+           value.
+
+        :param value: The value that the attribute is less than or equal to.
+        """
+        return LessThanEquals(self, value)
+
+    def gt(self, value):
+        """Creates a condition where the attribute is greater than the value.
+
+        :param value: The value that the attribute is greater than.
+        """
+        return GreaterThan(self, value)
+
+    def gte(self, value):
+        """Creates a condition where the attribute is greater than or equal to
+           the value.
+
+        :param value: The value that the attribute is greater than or equal to.
+        """
+        return GreaterThanEquals(self, value)
+
+    def begins_with(self, value):
+        """Creates a condition where the attribute begins with the value.
+
+        :param value: The value that the attribute begins with.
+        """
+        return BeginsWith(self, value)
+
+    def between(self, low_value, high_value):
+        """Creates a condition where the attribute is greater than or equal
+        to the low value and less than or equal to the high value.
+
+        :param low_value: The value that the attribute is greater than or equal to.
+        :param high_value: The value that the attribute is less than or equal to.
+        """
+        return Between(self, low_value, high_value)
+
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self.name == other.name
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+class ConditionAttributeBase(ConditionBase, AttributeBase):
+    """This base class is for conditions that can have attribute methods.
+
+    One example is the Size condition. To complete a condition, you need
+    to apply another AttributeBase method like eq().
+    """
+
+    def __init__(self, *values):
+        ConditionBase.__init__(self, *values)
+        # This is assuming the first value to the condition is the attribute
+        # in which can be used to generate its attribute base.
+        AttributeBase.__init__(self, values[0].name)
+
+    def __eq__(self, other):
+        return ConditionBase.__eq__(self, other) and AttributeBase.__eq__(
+            self, other
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+class ComparisonCondition(ConditionBase):
+    expression_format = '{0} {operator} {1}'
+
+
+class Equals(ComparisonCondition):
+    expression_operator = '='
+
+
+class NotEquals(ComparisonCondition):
+    expression_operator = '<>'
+
+
+class LessThan(ComparisonCondition):
+    expression_operator = '<'
+
+
+class LessThanEquals(ComparisonCondition):
+    expression_operator = '<='
+
+
+class GreaterThan(ComparisonCondition):
+    expression_operator = '>'
+
+
+class GreaterThanEquals(ComparisonCondition):
+    expression_operator = '>='
+
+
+class In(ComparisonCondition):
+    expression_operator = 'IN'
+    has_grouped_values = True
+
+
+class Between(ConditionBase):
+    expression_operator = 'BETWEEN'
+    expression_format = '{0} {operator} {1} AND {2}'
+
+
+class BeginsWith(ConditionBase):
+    expression_operator = 'begins_with'
+    expression_format = '{operator}({0}, {1})'
+
+
+class Contains(ConditionBase):
+    expression_operator = 'contains'
+    expression_format = '{operator}({0}, {1})'
+
+
+class Size(ConditionAttributeBase):
+    expression_operator = 'size'
+    expression_format = '{operator}({0})'
+
+
+class AttributeType(ConditionBase):
+    expression_operator = 'attribute_type'
+    expression_format = '{operator}({0}, {1})'
+
+
+class AttributeExists(ConditionBase):
+    expression_operator = 'attribute_exists'
+    expression_format = '{operator}({0})'
+
+
+class AttributeNotExists(ConditionBase):
+    expression_operator = 'attribute_not_exists'
+    expression_format = '{operator}({0})'
+
+
+class And(ConditionBase):
+    expression_operator = 'AND'
+    expression_format = '({0} {operator} {1})'
+
+
+class Or(ConditionBase):
+    expression_operator = 'OR'
+    expression_format = '({0} {operator} {1})'
+
+
+class Not(ConditionBase):
+    expression_operator = 'NOT'
+    expression_format = '({operator} {0})'
+
+
+class Key(AttributeBase):
+    pass
+
+
+class Attr(AttributeBase):
+    """Represents an DynamoDB item's attribute."""
+
+    def ne(self, value):
+        """Creates a condition where the attribute is not equal to the value
+
+        :param value: The value that the attribute is not equal to.
+        """
+        return NotEquals(self, value)
+
+    def is_in(self, value):
+        """Creates a condition where the attribute is in the value,
+
+        :type value: list
+        :param value: The value that the attribute is in.
+        """
+        return In(self, value)
+
+    def exists(self):
+        """Creates a condition where the attribute exists."""
+        return AttributeExists(self)
+
+    def not_exists(self):
+        """Creates a condition where the attribute does not exist."""
+        return AttributeNotExists(self)
+
+    def contains(self, value):
+        """Creates a condition where the attribute contains the value.
+
+        :param value: The value the attribute contains.
+        """
+        return Contains(self, value)
+
+    def size(self):
+        """Creates a condition for the attribute size.
+
+        Note another AttributeBase method must be called on the returned
+        size condition to be a valid DynamoDB condition.
+        """
+        return Size(self)
+
+    def attribute_type(self, value):
+        """Creates a condition for the attribute type.
+
+        :param value: The type of the attribute.
+        """
+        return AttributeType(self, value)
+
+
+BuiltConditionExpression = namedtuple(
+    'BuiltConditionExpression',
+    [
+        'condition_expression',
+        'attribute_name_placeholders',
+        'attribute_value_placeholders',
+    ],
+)
+
+
+class ConditionExpressionBuilder:
+    """This class is used to build condition expressions with placeholders"""
+
+    def __init__(self):
+        self._name_count = 0
+        self._value_count = 0
+        self._name_placeholder = 'n'
+        self._value_placeholder = 'v'
+
+    def _get_name_placeholder(self):
+        return '#' + self._name_placeholder + str(self._name_count)
+
+    def _get_value_placeholder(self):
+        return ':' + self._value_placeholder + str(self._value_count)
+
+    def reset(self):
+        """Resets the placeholder name and values"""
+        self._name_count = 0
+        self._value_count = 0
+
+    def build_expression(self, condition, is_key_condition=False):
+        """Builds the condition expression and the dictionary of placeholders.
+
+        :type condition: ConditionBase
+        :param condition: A condition to be built into a condition expression
+            string with any necessary placeholders.
+
+        :type is_key_condition: Boolean
+        :param is_key_condition: True if the expression is for a
+            KeyConditionExpression. False otherwise.
+
+        :rtype: (string, dict, dict)
+        :returns: Will return a string representing the condition with
+            placeholders inserted where necessary, a dictionary of
+            placeholders for attribute names, and a dictionary of
+            placeholders for attribute values. Here is a sample return value:
+
+            ('#n0 = :v0', {'#n0': 'myattribute'}, {':v1': 'myvalue'})
+        """
+        if not isinstance(condition, ConditionBase):
+            raise DynamoDBNeedsConditionError(condition)
+        attribute_name_placeholders = {}
+        attribute_value_placeholders = {}
+        condition_expression = self._build_expression(
+            condition,
+            attribute_name_placeholders,
+            attribute_value_placeholders,
+            is_key_condition=is_key_condition,
+        )
+        return BuiltConditionExpression(
+            condition_expression=condition_expression,
+            attribute_name_placeholders=attribute_name_placeholders,
+            attribute_value_placeholders=attribute_value_placeholders,
+        )
+
+    def _build_expression(
+        self,
+        condition,
+        attribute_name_placeholders,
+        attribute_value_placeholders,
+        is_key_condition,
+    ):
+        expression_dict = condition.get_expression()
+        replaced_values = []
+        for value in expression_dict['values']:
+            # Build the necessary placeholders for that value.
+            # Placeholders are built for both attribute names and values.
+            replaced_value = self._build_expression_component(
+                value,
+                attribute_name_placeholders,
+                attribute_value_placeholders,
+                condition.has_grouped_values,
+                is_key_condition,
+            )
+            replaced_values.append(replaced_value)
+        # Fill out the expression using the operator and the
+        # values that have been replaced with placeholders.
+        return expression_dict['format'].format(
+            *replaced_values, operator=expression_dict['operator']
+        )
+
+    def _build_expression_component(
+        self,
+        value,
+        attribute_name_placeholders,
+        attribute_value_placeholders,
+        has_grouped_values,
+        is_key_condition,
+    ):
+        # Continue to recurse if the value is a ConditionBase in order
+        # to extract out all parts of the expression.
+        if isinstance(value, ConditionBase):
+            return self._build_expression(
+                value,
+                attribute_name_placeholders,
+                attribute_value_placeholders,
+                is_key_condition,
+            )
+        # If it is not a ConditionBase, we can recurse no further.
+        # So we check if it is an attribute and add placeholders for
+        # its name
+        elif isinstance(value, AttributeBase):
+            if is_key_condition and not isinstance(value, Key):
+                raise DynamoDBNeedsKeyConditionError(
+                    f'Attribute object {value.name} is of type {type(value)}. '
+                    f'KeyConditionExpression only supports Attribute objects '
+                    f'of type Key'
+                )
+            return self._build_name_placeholder(
+                value, attribute_name_placeholders
+            )
+        # If it is anything else, we treat it as a value and thus placeholders
+        # are needed for the value.
+        else:
+            return self._build_value_placeholder(
+                value, attribute_value_placeholders, has_grouped_values
+            )
+
+    def _build_name_placeholder(self, value, attribute_name_placeholders):
+        attribute_name = value.name
+        # Figure out which parts of the attribute name that needs replacement.
+        attribute_name_parts = ATTR_NAME_REGEX.findall(attribute_name)
+
+        # Add a temporary placeholder for each of these parts.
+        placeholder_format = ATTR_NAME_REGEX.sub('%s', attribute_name)
+        str_format_args = []
+        for part in attribute_name_parts:
+            name_placeholder = self._get_name_placeholder()
+            self._name_count += 1
+            str_format_args.append(name_placeholder)
+            # Add the placeholder and value to dictionary of name placeholders.
+            attribute_name_placeholders[name_placeholder] = part
+        # Replace the temporary placeholders with the designated placeholders.
+        return placeholder_format % tuple(str_format_args)
+
+    def _build_value_placeholder(
+        self, value, attribute_value_placeholders, has_grouped_values=False
+    ):
+        # If the values are grouped, we need to add a placeholder for
+        # each element inside of the actual value.
+        if has_grouped_values:
+            placeholder_list = []
+            for v in value:
+                value_placeholder = self._get_value_placeholder()
+                self._value_count += 1
+                placeholder_list.append(value_placeholder)
+                attribute_value_placeholders[value_placeholder] = v
+            # Assuming the values are grouped by parenthesis.
+            # IN is the currently the only one that uses this so it maybe
+            # needed to be changed in future.
+            return '(' + ', '.join(placeholder_list) + ')'
+        # Otherwise, treat the value as a single value that needs only
+        # one placeholder.
+        else:
+            value_placeholder = self._get_value_placeholder()
+            self._value_count += 1
+            attribute_value_placeholders[value_placeholder] = value
+            return value_placeholder
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import HTMLResponse
+
+app = FastAPI()
+
+html = """
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat</title>
+    </head>
+    <body>
+        <h1>WebSocket Chat</h1>
+        <form action="" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off"/>
+            <button>Send</button>
+        </form>
+        <ul id='messages'>
+        </ul>
+        <script>
+            var ws = new WebSocket("ws://localhost:8000/ws");
+            ws.onmessage = function(event) {
+                var messages = document.getElementById('messages')
+                var message = document.createElement('li')
+                var content = document.createTextNode(event.data)
+                message.appendChild(content)
+                messages.appendChild(message)
+            };
+            function sendMessage(event) {
+                var input = document.getElementById("messageText")
+                ws.send(input.value)
+                input.value = ''
+                event.preventDefault()
+            }
+        </script>
+    </body>
+</html>
+"""
+
+
+@app.get("/")
+async def get():
+    return HTMLResponse(html)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+# mypy: allow-untyped-defs
+from __future__ import annotations
+
+from collections.abc import Collection
+from collections.abc import Mapping
+from collections.abc import Sequence
+from collections.abc import Sized
+from decimal import Decimal
+import math
+from numbers import Complex
+import pprint
+import sys
+from typing import Any
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from numpy import ndarray
+
+
+def _compare_approx(
+    full_object: object,
+    message_data: Sequence[tuple[str, str, str]],
+    number_of_elements: int,
+    different_ids: Sequence[object],
+    max_abs_diff: float,
+    max_rel_diff: float,
+) -> list[str]:
+    message_list = list(message_data)
+    message_list.insert(0, ("Index", "Obtained", "Expected"))
+    max_sizes = [0, 0, 0]
+    for index, obtained, expected in message_list:
+        max_sizes[0] = max(max_sizes[0], len(index))
+        max_sizes[1] = max(max_sizes[1], len(obtained))
+        max_sizes[2] = max(max_sizes[2], len(expected))
+    explanation = [
+        f"comparison failed. Mismatched elements: {len(different_ids)} / {number_of_elements}:",
+        f"Max absolute difference: {max_abs_diff}",
+        f"Max relative difference: {max_rel_diff}",
+    ] + [
+        f"{indexes:<{max_sizes[0]}} | {obtained:<{max_sizes[1]}} | {expected:<{max_sizes[2]}}"
+        for indexes, obtained, expected in message_list
+    ]
+    return explanation
+
+
+# builtin pytest.approx helper
+
+
+class ApproxBase:
+    """Provide shared utilities for making approximate comparisons between
+    numbers or sequences of numbers."""
+
+    # Tell numpy to use our `__eq__` operator instead of its.
+    __array_ufunc__ = None
+    __array_priority__ = 100
+
+    def __init__(self, expected, rel=None, abs=None, nan_ok: bool = False) -> None:
+        __tracebackhide__ = True
+        self.expected = expected
+        self.abs = abs
+        self.rel = rel
+        self.nan_ok = nan_ok
+        self._check_type()
+
+    def __repr__(self) -> str:
+        raise NotImplementedError
+
+    def _repr_compare(self, other_side: Any) -> list[str]:
+        return [
+            "comparison failed",
+            f"Obtained: {other_side}",
+            f"Expected: {self}",
+        ]
+
+    def __eq__(self, actual) -> bool:
+        return all(
+            a == self._approx_scalar(x) for a, x in self._yield_comparisons(actual)
+        )
+
+    def __bool__(self):
+        __tracebackhide__ = True
+        raise AssertionError(
+            "approx() is not supported in a boolean context.\nDid you mean: `assert a == approx(b)`?"
+        )
+
+    # Ignore type because of https://github.com/python/mypy/issues/4266.
+    __hash__ = None  # type: ignore
+
+    def __ne__(self, actual) -> bool:
+        return not (actual == self)
+
+    def _approx_scalar(self, x) -> ApproxScalar:
+        if isinstance(x, Decimal):
+            return ApproxDecimal(x, rel=self.rel, abs=self.abs, nan_ok=self.nan_ok)
+        return ApproxScalar(x, rel=self.rel, abs=self.abs, nan_ok=self.nan_ok)
+
+    def _yield_comparisons(self, actual):
+        """Yield all the pairs of numbers to be compared.
+
+        This is used to implement the `__eq__` method.
+        """
+        raise NotImplementedError
+
+    def _check_type(self) -> None:
+        """Raise a TypeError if the expected value is not a valid type."""
+        # This is only a concern if the expected value is a sequence.  In every
+        # other case, the approx() function ensures that the expected value has
+        # a numeric type.  For this reason, the default is to do nothing.  The
+        # classes that deal with sequences should reimplement this method to
+        # raise if there are any non-numeric elements in the sequence.
+
+
+def _recursive_sequence_map(f, x):
+    """Recursively map a function over a sequence of arbitrary depth"""
+    if isinstance(x, list | tuple):
+        seq_type = type(x)
+        return seq_type(_recursive_sequence_map(f, xi) for xi in x)
+    elif _is_sequence_like(x):
+        return [_recursive_sequence_map(f, xi) for xi in x]
+    else:
+        return f(x)
+
+
+class ApproxNumpy(ApproxBase):
+    """Perform approximate comparisons where the expected value is numpy array."""
+
+    def __repr__(self) -> str:
+        list_scalars = _recursive_sequence_map(
+            self._approx_scalar, self.expected.tolist()
+        )
+        return f"approx({list_scalars!r})"
+
+    def _repr_compare(self, other_side: ndarray | list[Any]) -> list[str]:
+        import itertools
+        import math
+
+        def get_value_from_nested_list(
+            nested_list: list[Any], nd_index: tuple[Any, ...]
+        ) -> Any:
+            """
+            Helper function to get the value out of a nested list, given an n-dimensional index.
+            This mimics numpy's indexing, but for raw nested python lists.
+            """
+            value: Any = nested_list
+            for i in nd_index:
+                value = value[i]
+            return value
+
+        np_array_shape = self.expected.shape
+        approx_side_as_seq = _recursive_sequence_map(
+            self._approx_scalar, self.expected.tolist()
+        )
+
+        # convert other_side to numpy array to ensure shape attribute is available
+        other_side_as_array = _as_numpy_array(other_side)
+        assert other_side_as_array is not None
+
+        if np_array_shape != other_side_as_array.shape:
+            return [
+                "Impossible to compare arrays with different shapes.",
+                f"Shapes: {np_array_shape} and {other_side_as_array.shape}",
+            ]
+
+        number_of_elements = self.expected.size
+        max_abs_diff = -math.inf
+        max_rel_diff = -math.inf
+        different_ids = []
+        for index in itertools.product(*(range(i) for i in np_array_shape)):
+            approx_value = get_value_from_nested_list(approx_side_as_seq, index)
+            other_value = get_value_from_nested_list(other_side_as_array, index)
+            if approx_value != other_value:
+                abs_diff = abs(approx_value.expected - other_value)
+                max_abs_diff = max(max_abs_diff, abs_diff)
+                if other_value == 0.0:
+                    max_rel_diff = math.inf
+                else:
+                    max_rel_diff = max(max_rel_diff, abs_diff / abs(other_value))
+                different_ids.append(index)
+
+        message_data = [
+            (
+                str(index),
+                str(get_value_from_nested_list(other_side_as_array, index)),
+                str(get_value_from_nested_list(approx_side_as_seq, index)),
+            )
+            for index in different_ids
+        ]
+        return _compare_approx(
+            self.expected,
+            message_data,
+            number_of_elements,
+            different_ids,
+            max_abs_diff,
+            max_rel_diff,
+        )
+
+    def __eq__(self, actual) -> bool:
+        import numpy as np
+
+        # self.expected is supposed to always be an array here.
+
+        if not np.isscalar(actual):
+            try:
+                actual = np.asarray(actual)
+            except Exception as e:
+                raise TypeError(f"cannot compare '{actual}' to numpy.ndarray") from e
+
+        if not np.isscalar(actual) and actual.shape != self.expected.shape:
+            return False
+
+        return super().__eq__(actual)
+
+    def _yield_comparisons(self, actual):
+        import numpy as np
+
+        # `actual` can either be a numpy array or a scalar, it is treated in
+        # `__eq__` before being passed to `ApproxBase.__eq__`, which is the
+        # only method that calls this one.
+
+        if np.isscalar(actual):
+            for i in np.ndindex(self.expected.shape):
+                yield actual, self.expected[i].item()
+        else:
+            for i in np.ndindex(self.expected.shape):
+                yield actual[i].item(), self.expected[i].item()
+
+
+class ApproxMapping(ApproxBase):
+    """Perform approximate comparisons where the expected value is a mapping
+    with numeric values (the keys can be anything)."""
+
+    def __repr__(self) -> str:
+        return f"approx({ ({k: self._approx_scalar(v) for k, v in self.expected.items()})!r})"
+
+    def _repr_compare(self, other_side: Mapping[object, float]) -> list[str]:
+        import math
+
+        if len(self.expected) != len(other_side):
+            return [
+                "Impossible to compare mappings with different sizes.",
+                f"Lengths: {len(self.expected)} and {len(other_side)}",
+            ]
+
+        if set(self.expected.keys()) != set(other_side.keys()):
+            return [
+                "comparison failed.",
+                f"Mappings has different keys: expected {self.expected.keys()} but got {other_side.keys()}",
+            ]
+
+        approx_side_as_map = {
+            k: self._approx_scalar(v) for k, v in self.expected.items()
+        }
+
+        number_of_elements = len(approx_side_as_map)
+        max_abs_diff = -math.inf
+        max_rel_diff = -math.inf
+        different_ids = []
+        for (approx_key, approx_value), other_value in zip(
+            approx_side_as_map.items(), other_side.values(), strict=True
+        ):
+            if approx_value != other_value:
+                if approx_value.expected is not None and other_value is not None:
+                    try:
+                        max_abs_diff = max(
+                            max_abs_diff, abs(approx_value.expected - other_value)
+                        )
+                        if approx_value.expected == 0.0:
+                            max_rel_diff = math.inf
+                        else:
+                            max_rel_diff = max(
+                                max_rel_diff,
+                                abs(
+                                    (approx_value.expected - other_value)
+                                    / approx_value.expected
+                                ),
+                            )
+                    except ZeroDivisionError:
+                        pass
+                different_ids.append(approx_key)
+
+        message_data = [
+            (str(key), str(other_side[key]), str(approx_side_as_map[key]))
+            for key in different_ids
+        ]
+
+        return _compare_approx(
+            self.expected,
+            message_data,
+            number_of_elements,
+            different_ids,
+            max_abs_diff,
+            max_rel_diff,
+        )
+
+    def __eq__(self, actual) -> bool:
+        try:
+            if set(actual.keys()) != set(self.expected.keys()):
+                return False
+        except AttributeError:
+            return False
+
+        return super().__eq__(actual)
+
+    def _yield_comparisons(self, actual):
+        for k in self.expected.keys():
+            yield actual[k], self.expected[k]
+
+    def _check_type(self) -> None:
+        __tracebackhide__ = True
+        for key, value in self.expected.items():
+            if isinstance(value, type(self.expected)):
+                msg = "pytest.approx() does not support nested dictionaries: key={!r} value={!r}\n  full mapping={}"
+                raise TypeError(msg.format(key, value, pprint.pformat(self.expected)))
+
+
+class ApproxSequenceLike(ApproxBase):
+    """Perform approximate comparisons where the expected value is a sequence of numbers."""
+
+    def __repr__(self) -> str:
+        seq_type = type(self.expected)
+        if seq_type not in (tuple, list):
+            seq_type = list
+        return f"approx({seq_type(self._approx_scalar(x) for x in self.expected)!r})"
+
+    def _repr_compare(self, other_side: Sequence[float]) -> list[str]:
+        import math
+
+        if len(self.expected) != len(other_side):
+            return [
+                "Impossible to compare lists with different sizes.",
+                f"Lengths: {len(self.expected)} and {len(other_side)}",
+            ]
+
+        approx_side_as_map = _recursive_sequence_map(self._approx_scalar, self.expected)
+
+        number_of_elements = len(approx_side_as_map)
+        max_abs_diff = -math.inf
+        max_rel_diff = -math.inf
+        different_ids = []
+        for i, (approx_value, other_value) in enumerate(
+            zip(approx_side_as_map, other_side, strict=True)
+        ):
+            if approx_value != other_value:
+                try:
+                    abs_diff = abs(approx_value.expected - other_value)
+                    max_abs_diff = max(max_abs_diff, abs_diff)
+                # Ignore non-numbers for the diff calculations (#13012).
+                except TypeError:
+                    pass
+                else:
+                    if other_value == 0.0:
+                        max_rel_diff = math.inf
+                    else:
+                        max_rel_diff = max(max_rel_diff, abs_diff / abs(other_value))
+                different_ids.append(i)
+        message_data = [
+            (str(i), str(other_side[i]), str(approx_side_as_map[i]))
+            for i in different_ids
+        ]
+
+        return _compare_approx(
+            self.expected,
+            message_data,
+            number_of_elements,
+            different_ids,
+            max_abs_diff,
+            max_rel_diff,
+        )
+
+    def __eq__(self, actual) -> bool:
+        try:
+            if len(actual) != len(self.expected):
+                return False
+        except TypeError:
+            return False
+        return super().__eq__(actual)
+
+    def _yield_comparisons(self, actual):
+        return zip(actual, self.expected, strict=True)
+
+    def _check_type(self) -> None:
+        __tracebackhide__ = True
+        for index, x in enumerate(self.expected):
+            if isinstance(x, type(self.expected)):
+                msg = "pytest.approx() does not support nested data structures: {!r} at index {}\n  full sequence: {}"
+                raise TypeError(msg.format(x, index, pprint.pformat(self.expected)))
+
+
+class ApproxScalar(ApproxBase):
+    """Perform approximate comparisons where the expected value is a single number."""
+
+    # Using Real should be better than this Union, but not possible yet:
+    # https://github.com/python/typeshed/pull/3108
+    DEFAULT_ABSOLUTE_TOLERANCE: float | Decimal = 1e-12
+    DEFAULT_RELATIVE_TOLERANCE: float | Decimal = 1e-6
+
+    def __repr__(self) -> str:
+        """Return a string communicating both the expected value and the
+        tolerance for the comparison being made.
+
+        For example, ``1.0 ± 1e-6``, ``(3+4j) ± 5e-6 ∠ ±180°``.
+        """
+        # Don't show a tolerance for values that aren't compared using
+        # tolerances, i.e. non-numerics and infinities. Need to call abs to
+        # handle complex numbers, e.g. (inf + 1j).
+        if (
+            isinstance(self.expected, bool)
+            or (not isinstance(self.expected, Complex | Decimal))
+            or math.isinf(abs(self.expected) or isinstance(self.expected, bool))
+        ):
+            return str(self.expected)
+
+        # If a sensible tolerance can't be calculated, self.tolerance will
+        # raise a ValueError.  In this case, display '???'.
+        try:
+            if 1e-3 <= self.tolerance < 1e3:
+                vetted_tolerance = f"{self.tolerance:n}"
+            else:
+                vetted_tolerance = f"{self.tolerance:.1e}"
+
+            if (
+                isinstance(self.expected, Complex)
+                and self.expected.imag
+                and not math.isinf(self.tolerance)
+            ):
+                vetted_tolerance += " ∠ ±180°"
+        except ValueError:
+            vetted_tolerance = "???"
+
+        return f"{self.expected} ± {vetted_tolerance}"
+
+    def __eq__(self, actual) -> bool:
+        """Return whether the given value is equal to the expected value
+        within the pre-specified tolerance."""
+
+        def is_bool(val: Any) -> bool:
+            # Check if `val` is a native bool or numpy bool.
+            if isinstance(val, bool):
+                return True
+            if np := sys.modules.get("numpy"):
+                return isinstance(val, np.bool_)
+            return False
+
+        asarray = _as_numpy_array(actual)
+        if asarray is not None:
+            # Call ``__eq__()`` manually to prevent infinite-recursion with
+            # numpy<1.13.  See #3748.
+            return all(self.__eq__(a) for a in asarray.flat)
+
+        # Short-circuit exact equality, except for bool and np.bool_
+        if is_bool(self.expected) and not is_bool(actual):
+            return False
+        elif actual == self.expected:
+            return True
+
+        # If either type is non-numeric, fall back to strict equality.
+        # NB: we need Complex, rather than just Number, to ensure that __abs__,
+        # __sub__, and __float__ are defined. Also, consider bool to be
+        # non-numeric, even though it has the required arithmetic.
+        if is_bool(self.expected) or not (
+            isinstance(self.expected, Complex | Decimal)
+            and isinstance(actual, Complex | Decimal)
+        ):
+            return False
+
+        # Allow the user to control whether NaNs are considered equal to each
+        # other or not.  The abs() calls are for compatibility with complex
+        # numbers.
+        if math.isnan(abs(self.expected)):
+            return self.nan_ok and math.isnan(abs(actual))
+
+        # Infinity shouldn't be approximately equal to anything but itself, but
+        # if there's a relative tolerance, it will be infinite and infinity
+        # will seem approximately equal to everything.  The equal-to-itself
+        # case would have been short circuited above, so here we can just
+        # return false if the expected value is infinite.  The abs() call is
+        # for compatibility with complex numbers.
+        if math.isinf(abs(self.expected)):
+            return False
+
+        # Return true if the two numbers are within the tolerance.
+        result: bool = abs(self.expected - actual) <= self.tolerance
+        return result
+
+    __hash__ = None
+
+    @property
+    def tolerance(self):
+        """Return the tolerance for the comparison.
+
+        This could be either an absolute tolerance or a relative tolerance,
+        depending on what the user specified or which would be larger.
+        """
+
+        def set_default(x, default):
+            return x if x is not None else default
+
+        # Figure out what the absolute tolerance should be.  ``self.abs`` is
+        # either None or a value specified by the user.
+        absolute_tolerance = set_default(self.abs, self.DEFAULT_ABSOLUTE_TOLERANCE)
+
+        if absolute_tolerance < 0:
+            raise ValueError(
+                f"absolute tolerance can't be negative: {absolute_tolerance}"
+            )
+        if math.isnan(absolute_tolerance):
+            raise ValueError("absolute tolerance can't be NaN.")
+
+        # If the user specified an absolute tolerance but not a relative one,
+        # just return the absolute tolerance.
+        if self.rel is None:
+            if self.abs is not None:
+                return absolute_tolerance
+
+        # Figure out what the relative tolerance should be.  ``self.rel`` is
+        # either None or a value specified by the user.  This is done after
+        # we've made sure the user didn't ask for an absolute tolerance only,
+        # because we don't want to raise errors about the relative tolerance if
+        # we aren't even going to use it.
+        relative_tolerance = set_default(
+            self.rel, self.DEFAULT_RELATIVE_TOLERANCE
+        ) * abs(self.expected)
+
+        if relative_tolerance < 0:
+            raise ValueError(
+                f"relative tolerance can't be negative: {relative_tolerance}"
+            )
+        if math.isnan(relative_tolerance):
+            raise ValueError("relative tolerance can't be NaN.")
+
+        # Return the larger of the relative and absolute tolerances.
+        return max(relative_tolerance, absolute_tolerance)
+
+
+class ApproxDecimal(ApproxScalar):
+    """Perform approximate comparisons where the expected value is a Decimal."""
+
+    DEFAULT_ABSOLUTE_TOLERANCE = Decimal("1e-12")
+    DEFAULT_RELATIVE_TOLERANCE = Decimal("1e-6")
+
+    def __repr__(self) -> str:
+        if isinstance(self.rel, float):
+            rel = Decimal.from_float(self.rel)
+        else:
+            rel = self.rel
+
+        if isinstance(self.abs, float):
+            abs_ = Decimal.from_float(self.abs)
+        else:
+            abs_ = self.abs
+
+        tol_str = "???"
+        if rel is not None and Decimal("1e-3") <= rel <= Decimal("1e3"):
+            tol_str = f"{rel:.1e}"
+        elif abs_ is not None:
+            tol_str = f"{abs_:.1e}"
+
+        return f"{self.expected} ± {tol_str}"
+
+
+def approx(expected, rel=None, abs=None, nan_ok: bool = False) -> ApproxBase:
+    """Assert that two numbers (or two ordered sequences of numbers) are equal to each other
+    within some tolerance.
+
+    Due to the :doc:`python:tutorial/floatingpoint`, numbers that we
+    would intuitively expect to be equal are not always so::
+
+        >>> 0.1 + 0.2 == 0.3
+        False
+
+    This problem is commonly encountered when writing tests, e.g. when making
+    sure that floating-point values are what you expect them to be.  One way to
+    deal with this problem is to assert that two floating-point numbers are
+    equal to within some appropriate tolerance::
+
+        >>> abs((0.1 + 0.2) - 0.3) < 1e-6
+        True
+
+    However, comparisons like this are tedious to write and difficult to
+    understand.  Furthermore, absolute comparisons like the one above are
+    usually discouraged because there's no tolerance that works well for all
+    situations.  ``1e-6`` is good for numbers around ``1``, but too small for
+    very big numbers and too big for very small ones.  It's better to express
+    the tolerance as a fraction of the expected value, but relative comparisons
+    like that are even more difficult to write correctly and concisely.
+
+    The ``approx`` class performs floating-point comparisons using a syntax
+    that's as intuitive as possible::
+
+        >>> from pytest import approx
+        >>> 0.1 + 0.2 == approx(0.3)
+        True
+
+    The same syntax also works for ordered sequences of numbers::
+
+        >>> (0.1 + 0.2, 0.2 + 0.4) == approx((0.3, 0.6))
+        True
+
+    ``numpy`` arrays::
+
+        >>> import numpy as np                                                          # doctest: +SKIP
+        >>> np.array([0.1, 0.2]) + np.array([0.2, 0.4]) == approx(np.array([0.3, 0.6])) # doctest: +SKIP
+        True
+
+    And for a ``numpy`` array against a scalar::
+
+        >>> import numpy as np                                         # doctest: +SKIP
+        >>> np.array([0.1, 0.2]) + np.array([0.2, 0.1]) == approx(0.3) # doctest: +SKIP
+        True
+
+    Only ordered sequences are supported, because ``approx`` needs
+    to infer the relative position of the sequences without ambiguity. This means
+    ``sets`` and other unordered sequences are not supported.
+
+    Finally, dictionary *values* can also be compared::
+
+        >>> {'a': 0.1 + 0.2, 'b': 0.2 + 0.4} == approx({'a': 0.3, 'b': 0.6})
+        True
+
+    The comparison will be true if both mappings have the same keys and their
+    respective values match the expected tolerances.
+
+    **Tolerances**
+
+    By default, ``approx`` considers numbers within a relative tolerance of
+    ``1e-6`` (i.e. one part in a million) of its expected value to be equal.
+    This treatment would lead to surprising results if the expected value was
+    ``0.0``, because nothing but ``0.0`` itself is relatively close to ``0.0``.
+    To handle this case less surprisingly, ``approx`` also considers numbers
+    within an absolute tolerance of ``1e-12`` of its expected value to be
+    equal.  Infinity and NaN are special cases.  Infinity is only considered
+    equal to itself, regardless of the relative tolerance.  NaN is not
+    considered equal to anything by default, but you can make it be equal to
+    itself by setting the ``nan_ok`` argument to True.  (This is meant to
+    facilitate comparing arrays that use NaN to mean "no data".)
+
+    Both the relative and absolute tolerances can be changed by passing
+    arguments to the ``approx`` constructor::
+
+        >>> 1.0001 == approx(1)
+        False
+        >>> 1.0001 == approx(1, rel=1e-3)
+        True
+        >>> 1.0001 == approx(1, abs=1e-3)
+        True
+
+    If you specify ``abs`` but not ``rel``, the comparison will not consider
+    the relative tolerance at all.  In other words, two numbers that are within
+    the default relative tolerance of ``1e-6`` will still be considered unequal
+    if they exceed the specified absolute tolerance.  If you specify both
+    ``abs`` and ``rel``, the numbers will be considered equal if either
+    tolerance is met::
+
+        >>> 1 + 1e-8 == approx(1)
+        True
+        >>> 1 + 1e-8 == approx(1, abs=1e-12)
+        False
+        >>> 1 + 1e-8 == approx(1, rel=1e-6, abs=1e-12)
+        True
+
+    **Non-numeric types**
+
+    You can also use ``approx`` to compare non-numeric types, or dicts and
+    sequences containing non-numeric types, in which case it falls back to
+    strict equality. This can be useful for comparing dicts and sequences that
+    can contain optional values::
+
+        >>> {"required": 1.0000005, "optional": None} == approx({"required": 1, "optional": None})
+        True
+        >>> [None, 1.0000005] == approx([None,1])
+        True
+        >>> ["foo", 1.0000005] == approx([None,1])
+        False
+
+    If you're thinking about using ``approx``, then you might want to know how
+    it compares to other good ways of comparing floating-point numbers.  All of
+    these algorithms are based on relative and absolute tolerances and should
+    agree for the most part, but they do have meaningful differences:
+
+    - ``math.isclose(a, b, rel_tol=1e-9, abs_tol=0.0)``:  True if the relative
+      tolerance is met w.r.t. either ``a`` or ``b`` or if the absolute
+      tolerance is met.  Because the relative tolerance is calculated w.r.t.
+      both ``a`` and ``b``, this test is symmetric (i.e.  neither ``a`` nor
+      ``b`` is a "reference value").  You have to specify an absolute tolerance
+      if you want to compare to ``0.0`` because there is no tolerance by
+      default.  More information: :py:func:`math.isclose`.
+
+    - ``numpy.isclose(a, b, rtol=1e-5, atol=1e-8)``: True if the difference
+      between ``a`` and ``b`` is less that the sum of the relative tolerance
+      w.r.t. ``b`` and the absolute tolerance.  Because the relative tolerance
+      is only calculated w.r.t. ``b``, this test is asymmetric and you can
+      think of ``b`` as the reference value.  Support for comparing sequences
+      is provided by :py:func:`numpy.allclose`.  More information:
+      :std:doc:`numpy:reference/generated/numpy.isclose`.
+
+    - ``unittest.TestCase.assertAlmostEqual(a, b)``: True if ``a`` and ``b``
+      are within an absolute tolerance of ``1e-7``.  No relative tolerance is
+      considered , so this function is not appropriate for very large or very
+      small numbers.  Also, it's only available in subclasses of ``unittest.TestCase``
+      and it's ugly because it doesn't follow PEP8.  More information:
+      :py:meth:`unittest.TestCase.assertAlmostEqual`.
+
+    - ``a == pytest.approx(b, rel=1e-6, abs=1e-12)``: True if the relative
+      tolerance is met w.r.t. ``b`` or if the absolute tolerance is met.
+      Because the relative tolerance is only calculated w.r.t. ``b``, this test
+      is asymmetric and you can think of ``b`` as the reference value.  In the
+      special case that you explicitly specify an absolute tolerance but not a
+      relative tolerance, only the absolute tolerance is considered.
+
+    .. note::
+
+        ``approx`` can handle numpy arrays, but we recommend the
+        specialised test helpers in :std:doc:`numpy:reference/routines.testing`
+        if you need support for comparisons, NaNs, or ULP-based tolerances.
+
+        To match strings using regex, you can use
+        `Matches <https://github.com/asottile/re-assert#re_assertmatchespattern-str-args-kwargs>`_
+        from the
+        `re_assert package <https://github.com/asottile/re-assert>`_.
+
+
+    .. note::
+
+        Unlike built-in equality, this function considers
+        booleans unequal to numeric zero or one. For example::
+
+           >>> 1 == approx(True)
+           False
+
+    .. warning::
+
+       .. versionchanged:: 3.2
+
+       In order to avoid inconsistent behavior, :py:exc:`TypeError` is
+       raised for ``>``, ``>=``, ``<`` and ``<=`` comparisons.
+       The example below illustrates the problem::
+
+           assert approx(0.1) > 0.1 + 1e-10  # calls approx(0.1).__gt__(0.1 + 1e-10)
+           assert 0.1 + 1e-10 > approx(0.1)  # calls approx(0.1).__lt__(0.1 + 1e-10)
+
+       In the second example one expects ``approx(0.1).__le__(0.1 + 1e-10)``
+       to be called. But instead, ``approx(0.1).__lt__(0.1 + 1e-10)`` is used to
+       comparison. This is because the call hierarchy of rich comparisons
+       follows a fixed behavior. More information: :py:meth:`object.__ge__`
+
+    .. versionchanged:: 3.7.1
+       ``approx`` raises ``TypeError`` when it encounters a dict value or
+       sequence element of non-numeric type.
+
+    .. versionchanged:: 6.1.0
+       ``approx`` falls back to strict equality for non-numeric types instead
+       of raising ``TypeError``.
+    """
+    # Delegate the comparison to a class that knows how to deal with the type
+    # of the expected value (e.g. int, float, list, dict, numpy.array, etc).
+    #
+    # The primary responsibility of these classes is to implement ``__eq__()``
+    # and ``__repr__()``.  The former is used to actually check if some
+    # "actual" value is equivalent to the given expected value within the
+    # allowed tolerance.  The latter is used to show the user the expected
+    # value and tolerance, in the case that a test failed.
+    #
+    # The actual logic for making approximate comparisons can be found in
+    # ApproxScalar, which is used to compare individual numbers.  All of the
+    # other Approx classes eventually delegate to this class.  The ApproxBase
+    # class provides some convenient methods and overloads, but isn't really
+    # essential.
+
+    __tracebackhide__ = True
+
+    if isinstance(expected, Decimal):
+        cls: type[ApproxBase] = ApproxDecimal
+    elif isinstance(expected, Mapping):
+        cls = ApproxMapping
+    elif _is_numpy_array(expected):
+        expected = _as_numpy_array(expected)
+        cls = ApproxNumpy
+    elif _is_sequence_like(expected):
+        cls = ApproxSequenceLike
+    elif isinstance(expected, Collection) and not isinstance(expected, str | bytes):
+        msg = f"pytest.approx() only supports ordered sequences, but got: {expected!r}"
+        raise TypeError(msg)
+    else:
+        cls = ApproxScalar
+
+    return cls(expected, rel, abs, nan_ok)
+
+
+def _is_sequence_like(expected: object) -> bool:
+    return (
+        hasattr(expected, "__getitem__")
+        and isinstance(expected, Sized)
+        and not isinstance(expected, str | bytes)
+    )
+
+
+def _is_numpy_array(obj: object) -> bool:
+    """
+    Return true if the given object is implicitly convertible to ndarray,
+    and numpy is already imported.
+    """
+    return _as_numpy_array(obj) is not None
+
+
+def _as_numpy_array(obj: object) -> ndarray | None:
+    """
+    Return an ndarray if the given object is implicitly convertible to ndarray,
+    and numpy is already imported, otherwise None.
+    """
+    np: Any = sys.modules.get("numpy")
+    if np is not None:
+        # avoid infinite recursion on numpy scalars, which have __array__
+        if np.isscalar(obj):
+            return None
+        elif isinstance(obj, np.ndarray):
+            return obj
+        elif hasattr(obj, "__array__") or hasattr("obj", "__array_interface__"):
+            return np.asarray(obj)
+    return None
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# https://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
+from botocore.docs.docstring import LazyLoadedDocstring
+
+from boto3.docs.action import document_action, document_load_reload_action
+from boto3.docs.attr import (
+    document_attribute,
+    document_identifier,
+    document_reference,
+)
+from boto3.docs.collection import (
+    document_batch_action,
+    document_collection_method,
+    document_collection_object,
+)
+from boto3.docs.subresource import document_sub_resource
+from boto3.docs.waiter import document_resource_waiter
+
+
+class ActionDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_action(*args, **kwargs)
+
+
+class LoadReloadDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_load_reload_action(*args, **kwargs)
+
+
+class SubResourceDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_sub_resource(*args, **kwargs)
+
+
+class AttributeDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_attribute(*args, **kwargs)
+
+
+class IdentifierDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_identifier(*args, **kwargs)
+
+
+class ReferenceDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_reference(*args, **kwargs)
+
+
+class CollectionDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_collection_object(*args, **kwargs)
+
+
+class CollectionMethodDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_collection_method(*args, **kwargs)
+
+
+class BatchActionDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_batch_action(*args, **kwargs)
+
+
+class ResourceWaiterDocstring(LazyLoadedDocstring):
+    def _write_docstring(self, *args, **kwargs):
+        document_resource_waiter(*args, **kwargs)
+import flask
+
+
+def test_aborting(app):
+    class Foo(Exception):
+        whatever = 42
+
+    @app.errorhandler(Foo)
+    def handle_foo(e):
+        return str(e.whatever)
+
+    @app.route("/")
+    def index():
+        raise flask.abort(flask.redirect(flask.url_for("test")))
+
+    @app.route("/test")
+    def test():
+        raise Foo()
+
+    with app.test_client() as c:
+        rv = c.get("/")
+        location_parts = rv.headers["Location"].rpartition("/")
+
+        if location_parts[0]:
+            # For older Werkzeug that used absolute redirects.
+            assert location_parts[0] == "http://localhost"
+
+        assert location_parts[2] == "test"
+        rv = c.get("/test")
+        assert rv.data == b"42"
+from typing import Optional
+
+import pytest
+from fastapi import Cookie, FastAPI, Header, Path, Query
+from fastapi.testclient import TestClient
+
+app = FastAPI()
+
+
+@app.get("/hidden_cookie")
+async def hidden_cookie(
+    hidden_cookie: Optional[str] = Cookie(default=None, include_in_schema=False),
+):
+    return {"hidden_cookie": hidden_cookie}
+
+
+@app.get("/hidden_header")
+async def hidden_header(
+    hidden_header: Optional[str] = Header(default=None, include_in_schema=False),
+):
+    return {"hidden_header": hidden_header}
+
+
+@app.get("/hidden_path/{hidden_path}")
+async def hidden_path(hidden_path: str = Path(include_in_schema=False)):
+    return {"hidden_path": hidden_path}
+
+
+@app.get("/hidden_query")
+async def hidden_query(
+    hidden_query: Optional[str] = Query(default=None, include_in_schema=False),
+):
+    return {"hidden_query": hidden_query}
+
+
+openapi_schema = {
+    "openapi": "3.1.0",
+    "info": {"title": "FastAPI", "version": "0.1.0"},
+    "paths": {
+        "/hidden_cookie": {
+            "get": {
+                "summary": "Hidden Cookie",
+                "operationId": "hidden_cookie_hidden_cookie_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {"application/json": {"schema": {}}},
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        },
+                    },
+                },
+            }
+        },
+        "/hidden_header": {
+            "get": {
+                "summary": "Hidden Header",
+                "operationId": "hidden_header_hidden_header_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {"application/json": {"schema": {}}},
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        },
+                    },
+                },
+            }
+        },
+        "/hidden_path/{hidden_path}": {
+            "get": {
+                "summary": "Hidden Path",
+                "operationId": "hidden_path_hidden_path__hidden_path__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {"application/json": {"schema": {}}},
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        },
+                    },
+                },
+            }
+        },
+        "/hidden_query": {
+            "get": {
+                "summary": "Hidden Query",
+                "operationId": "hidden_query_hidden_query_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {"application/json": {"schema": {}}},
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        },
+                    },
+                },
+            }
+        },
+    },
+    "components": {
+        "schemas": {
+            "HTTPValidationError": {
+                "title": "HTTPValidationError",
+                "type": "object",
+                "properties": {
+                    "detail": {
+                        "title": "Detail",
+                        "type": "array",
+                        "items": {"$ref": "#/components/schemas/ValidationError"},
+                    }
+                },
+            },
+            "ValidationError": {
+                "title": "ValidationError",
+                "required": ["loc", "msg", "type"],
+                "type": "object",
+                "properties": {
+                    "loc": {
+                        "title": "Location",
+                        "type": "array",
+                        "items": {"anyOf": [{"type": "string"}, {"type": "integer"}]},
+                    },
+                    "msg": {"title": "Message", "type": "string"},
+                    "type": {"title": "Error Type", "type": "string"},
+                },
+            },
+        }
+    },
+}
+
+
+def test_openapi_schema():
+    client = TestClient(app)
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    assert response.json() == openapi_schema
+
+
+@pytest.mark.parametrize(
+    "path,cookies,expected_status,expected_response",
+    [
+        (
+            "/hidden_cookie",
+            {},
+            200,
+            {"hidden_cookie": None},
+        ),
+        (
+            "/hidden_cookie",
+            {"hidden_cookie": "somevalue"},
+            200,
+            {"hidden_cookie": "somevalue"},
+        ),
+    ],
+)
+def test_hidden_cookie(path, cookies, expected_status, expected_response):
+    client = TestClient(app, cookies=cookies)
+    response = client.get(path)
+    assert response.status_code == expected_status
+    assert response.json() == expected_response
+
+
+@pytest.mark.parametrize(
+    "path,headers,expected_status,expected_response",
+    [
+        (
+            "/hidden_header",
+            {},
+            200,
+            {"hidden_header": None},
+        ),
+        (
+            "/hidden_header",
+            {"Hidden-Header": "somevalue"},
+            200,
+            {"hidden_header": "somevalue"},
+        ),
+    ],
+)
+def test_hidden_header(path, headers, expected_status, expected_response):
+    client = TestClient(app)
+    response = client.get(path, headers=headers)
+    assert response.status_code == expected_status
+    assert response.json() == expected_response
+
+
+def test_hidden_path():
+    client = TestClient(app)
+    response = client.get("/hidden_path/hidden_path")
+    assert response.status_code == 200
+    assert response.json() == {"hidden_path": "hidden_path"}
+
+
+@pytest.mark.parametrize(
+    "path,expected_status,expected_response",
+    [
+        (
+            "/hidden_query",
+            200,
+            {"hidden_query": None},
+        ),
+        (
+            "/hidden_query?hidden_query=somevalue",
+            200,
+            {"hidden_query": "somevalue"},
+        ),
+    ],
+)
+def test_hidden_query(path, expected_status, expected_response):
+    client = TestClient(app)
+    response = client.get(path)
+    assert response.status_code == expected_status
+    assert response.json() == expected_response
+from typing import Optional
+
+from fastapi import Depends, FastAPI, Security
+from fastapi.security import APIKeyHeader
+from fastapi.testclient import TestClient
+from pydantic import BaseModel
+
+app = FastAPI()
+
+api_key = APIKeyHeader(name="key", auto_error=False)
+
+
+class User(BaseModel):
+    username: str
+
+
+def get_current_user(oauth_header: Optional[str] = Security(api_key)):
+    if oauth_header is None:
+        return None
+    user = User(username=oauth_header)
+    return user
+
+
+@app.get("/users/me")
+def read_current_user(current_user: Optional[User] = Depends(get_current_user)):
+    if current_user is None:
+        return {"msg": "Create an account first"}
+    return current_user
+
+
+client = TestClient(app)
+
+
+def test_security_api_key():
+    response = client.get("/users/me", headers={"key": "secret"})
+    assert response.status_code == 200, response.text
+    assert response.json() == {"username": "secret"}
+
+
+def test_security_api_key_no_key():
+    response = client.get("/users/me")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"msg": "Create an account first"}
+
+
+def test_openapi_schema():
+    response = client.get("/openapi.json")
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "openapi": "3.1.0",
+        "info": {"title": "FastAPI", "version": "0.1.0"},
+        "paths": {
+            "/users/me": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Successful Response",
+                            "content": {"application/json": {"schema": {}}},
+                        }
+                    },
+                    "summary": "Read Current User",
+                    "operationId": "read_current_user_users_me_get",
+                    "security": [{"APIKeyHeader": []}],
+                }
+            }
+        },
+        "components": {
+            "securitySchemes": {
+                "APIKeyHeader": {"type": "apiKey", "name": "key", "in": "header"}
+            }
+        },
+    }
+import sys
+
+from tests.utils import pydantic_snapshot, skip_module_if_py_gte_314
+
+if sys.version_info >= (3, 14):
+    skip_module_if_py_gte_314()
+
+from fastapi.testclient import TestClient
+from inline_snapshot import snapshot
+
+from .main import app
+
+client = TestClient(app)
+
+
+def test_v1_to_v2_item():
+    response = client.post(
+        "/v1-to-v2/item",
+        json={"title": "Test", "size": 10, "sub": {"name": "SubTest"}},
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "new_title": "Test",
+        "new_size": 10,
+        "new_description": None,
+        "new_sub": {"new_sub_name": "SubTest"},
+        "new_multi": [],
+    }
+
+
+def test_v2_to_v1_item():
+    response = client.post(
+        "/v2-to-v1/item",
+        json={
+            "new_title": "NewTest",
+            "new_size": 20,
+            "new_sub": {"new_sub_name": "NewSubTest"},
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "title": "NewTest",
+        "size": 20,
+        "description": None,
+        "sub": {"name": "NewSubTest"},
+        "multi": [],
+    }
+
+
+def test_v1_to_v2_item_to_list():
+    response = client.post(
+        "/v1-to-v2/item-to-list",
+        json={"title": "ListTest", "size": 30, "sub": {"name": "SubListTest"}},
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "new_title": "ListTest",
+            "new_size": 30,
+            "new_description": None,
+            "new_sub": {"new_sub_name": "SubListTest"},
+            "new_multi": [],
+        },
+        {
+            "new_title": "ListTest",
+            "new_size": 30,
+            "new_description": None,
+            "new_sub": {"new_sub_name": "SubListTest"},
+            "new_multi": [],
+        },
+    ]
+
+
+def test_v1_to_v2_list_to_list():
+    response = client.post(
+        "/v1-to-v2/list-to-list",
+        json=[
+            {"title": "Item1", "size": 40, "sub": {"name": "Sub1"}},
+            {"title": "Item2", "size": 50, "sub": {"name": "Sub2"}},
+        ],
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "new_title": "Item1",
+            "new_size": 40,
+            "new_description": None,
+            "new_sub": {"new_sub_name": "Sub1"},
+            "new_multi": [],
+        },
+        {
+            "new_title": "Item2",
+            "new_size": 50,
+            "new_description": None,
+            "new_sub": {"new_sub_name": "Sub2"},
+            "new_multi": [],
+        },
+    ]
+
+
+def test_v1_to_v2_list_to_item():
+    response = client.post(
+        "/v1-to-v2/list-to-item",
+        json=[
+            {"title": "FirstItem", "size": 60, "sub": {"name": "FirstSub"}},
+            {"title": "SecondItem", "size": 70, "sub": {"name": "SecondSub"}},
+        ],
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "new_title": "FirstItem",
+        "new_size": 60,
+        "new_description": None,
+        "new_sub": {"new_sub_name": "FirstSub"},
+        "new_multi": [],
+    }
+
+
+def test_v2_to_v1_item_to_list():
+    response = client.post(
+        "/v2-to-v1/item-to-list",
+        json={
+            "new_title": "ListNew",
+            "new_size": 80,
+            "new_sub": {"new_sub_name": "SubListNew"},
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "title": "ListNew",
+            "size": 80,
+            "description": None,
+            "sub": {"name": "SubListNew"},
+            "multi": [],
+        },
+        {
+            "title": "ListNew",
+            "size": 80,
+            "description": None,
+            "sub": {"name": "SubListNew"},
+            "multi": [],
+        },
+    ]
+
+
+def test_v2_to_v1_list_to_list():
+    response = client.post(
+        "/v2-to-v1/list-to-list",
+        json=[
+            {
+                "new_title": "New1",
+                "new_size": 90,
+                "new_sub": {"new_sub_name": "NewSub1"},
+            },
+            {
+                "new_title": "New2",
+                "new_size": 100,
+                "new_sub": {"new_sub_name": "NewSub2"},
+            },
+        ],
+    )
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "title": "New1",
+            "size": 90,
+            "description": None,
+            "sub": {"name": "NewSub1"},
+            "multi": [],
+        },
+        {
+            "title": "New2",
+            "size": 100,
+            "description": None,
+            "sub": {"name": "NewSub2"},
+            "multi": [],
+        },
+    ]
+
+
+def test_v2_to_v1_list_to_item():
+    response = client.post(
+        "/v2-to-v1/list-to-item",
+        json=[
+            {
+                "new_title": "FirstNew",
+                "new_size": 110,
+                "new_sub": {"new_sub_name": "FirstNewSub"},
+            },
+            {
+                "new_title": "SecondNew",
+                "new_size": 120,
+                "new_sub": {"new_sub_name": "SecondNewSub"},
+            },
+        ],
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "title": "FirstNew",
+        "size": 110,
+        "description": None,
+        "sub": {"name": "FirstNewSub"},
+        "multi": [],
+    }
+
+
+def test_v1_to_v2_list_to_item_empty():
+    response = client.post("/v1-to-v2/list-to-item", json=[])
+    assert response.status_code == 200
+    assert response.json() == {
+        "new_title": "",
+        "new_size": 0,
+        "new_description": None,
+        "new_sub": {"new_sub_name": ""},
+        "new_multi": [],
+    }
+
+
+def test_v2_to_v1_list_to_item_empty():
+    response = client.post("/v2-to-v1/list-to-item", json=[])
+    assert response.status_code == 200
+    assert response.json() == {
+        "title": "",
+        "size": 0,
+        "description": None,
+        "sub": {"name": ""},
+        "multi": [],
+    }
+
+
+def test_v2_same_name_to_v1():
+    response = client.post(
+        "/v2-to-v1/same-name",
+        json={
+            "item1": {
+                "new_title": "Title1",
+                "new_size": 100,
+                "new_description": "Description1",
+                "new_sub": {"new_sub_name": "Sub1"},
+                "new_multi": [{"new_sub_name": "Multi1"}],
+            },
+            "item2": {
+                "dup_title": "Title2",
+                "dup_size": 200,
+                "dup_description": "Description2",
+                "dup_sub": {"dup_sub_name": "Sub2"},
+                "dup_multi": [
+                    {"dup_sub_name": "Multi2a"},
+                    {"dup_sub_name": "Multi2b"},
+                ],
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {
+        "title": "Title1",
+        "size": 200,
+        "description": "Description1",
+        "sub": {"name": "Sub1"},
+        "multi": [{"name": "Multi2a"}, {"name": "Multi2b"}],
+    }
+
+
+def test_v2_items_in_list_to_v1_item_in_list():
+    response = client.post(
+        "/v2-to-v1/list-of-items-to-list-of-items",
+        json={
+            "data1": [{"name2": "Item1"}, {"name2": "Item2"}],
+            "data2": [{"dup_name2": "Item3"}, {"dup_name2": "Item4"}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {"name1": "Item1"},
+        {"name1": "Item3"},
+    ]
+
+
+def test_openapi_schema():
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    assert response.json() == snapshot(
+        {
+            "openapi": "3.1.0",
+            "info": {"title": "FastAPI", "version": "0.1.0"},
+            "paths": {
+                "/v1-to-v2/item": {
+                    "post": {
+                        "summary": "Handle V1 Item To V2",
+                        "operationId": "handle_v1_item_to_v2_v1_to_v2_item_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": pydantic_snapshot(
+                                        v2=snapshot(
+                                            {
+                                                "allOf": [
+                                                    {
+                                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                                    }
+                                                ],
+                                                "title": "Data",
+                                            }
+                                        ),
+                                        v1=snapshot(
+                                            {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                            }
+                                        ),
+                                    )
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v2-to-v1/item": {
+                    "post": {
+                        "summary": "Handle V2 Item To V1",
+                        "operationId": "handle_v2_item_to_v1_v2_to_v1_item_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": pydantic_snapshot(
+                                        v2=snapshot(
+                                            {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item-Input"
+                                            }
+                                        ),
+                                        v1=snapshot(
+                                            {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                            }
+                                        ),
+                                    ),
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v1-to-v2/item-to-list": {
+                    "post": {
+                        "summary": "Handle V1 Item To V2 List",
+                        "operationId": "handle_v1_item_to_v2_list_v1_to_v2_item_to_list_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": pydantic_snapshot(
+                                        v2=snapshot(
+                                            {
+                                                "allOf": [
+                                                    {
+                                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                                    }
+                                                ],
+                                                "title": "Data",
+                                            }
+                                        ),
+                                        v1=snapshot(
+                                            {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                            }
+                                        ),
+                                    )
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                            },
+                                            "type": "array",
+                                            "title": "Response Handle V1 Item To V2 List V1 To V2 Item To List Post",
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v1-to-v2/list-to-list": {
+                    "post": {
+                        "summary": "Handle V1 List To V2 List",
+                        "operationId": "handle_v1_list_to_v2_list_v1_to_v2_list_to_list_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                        },
+                                        "type": "array",
+                                        "title": "Data",
+                                    }
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                            },
+                                            "type": "array",
+                                            "title": "Response Handle V1 List To V2 List V1 To V2 List To List Post",
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v1-to-v2/list-to-item": {
+                    "post": {
+                        "summary": "Handle V1 List To V2 Item",
+                        "operationId": "handle_v1_list_to_v2_item_v1_to_v2_list_to_item_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                        },
+                                        "type": "array",
+                                        "title": "Data",
+                                    }
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v2-to-v1/item-to-list": {
+                    "post": {
+                        "summary": "Handle V2 Item To V1 List",
+                        "operationId": "handle_v2_item_to_v1_list_v2_to_v1_item_to_list_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": pydantic_snapshot(
+                                        v2=snapshot(
+                                            {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item-Input"
+                                            }
+                                        ),
+                                        v1=snapshot(
+                                            {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                            }
+                                        ),
+                                    ),
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                            },
+                                            "type": "array",
+                                            "title": "Response Handle V2 Item To V1 List V2 To V1 Item To List Post",
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v2-to-v1/list-to-list": {
+                    "post": {
+                        "summary": "Handle V2 List To V1 List",
+                        "operationId": "handle_v2_list_to_v1_list_v2_to_v1_list_to_list_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "items": pydantic_snapshot(
+                                            v2=snapshot(
+                                                {
+                                                    "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item-Input"
+                                                }
+                                            ),
+                                            v1=snapshot(
+                                                {
+                                                    "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                                }
+                                            ),
+                                        ),
+                                        "type": "array",
+                                        "title": "Data",
+                                    }
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                            },
+                                            "type": "array",
+                                            "title": "Response Handle V2 List To V1 List V2 To V1 List To List Post",
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v2-to-v1/list-to-item": {
+                    "post": {
+                        "summary": "Handle V2 List To V1 Item",
+                        "operationId": "handle_v2_list_to_v1_item_v2_to_v1_list_to_item_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "items": pydantic_snapshot(
+                                            v2=snapshot(
+                                                {
+                                                    "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item-Input"
+                                                }
+                                            ),
+                                            v1=snapshot(
+                                                {
+                                                    "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                                }
+                                            ),
+                                        ),
+                                        "type": "array",
+                                        "title": "Data",
+                                    }
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v2-to-v1/same-name": {
+                    "post": {
+                        "summary": "Handle V2 Same Name To V1",
+                        "operationId": "handle_v2_same_name_to_v1_v2_to_v1_same_name_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/Body_handle_v2_same_name_to_v1_v2_to_v1_same_name_post"
+                                    }
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__Item"
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+                "/v2-to-v1/list-of-items-to-list-of-items": {
+                    "post": {
+                        "summary": "Handle V2 Items In List To V1 Item In List",
+                        "operationId": "handle_v2_items_in_list_to_v1_item_in_list_v2_to_v1_list_of_items_to_list_of_items_post",
+                        "requestBody": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "$ref": "#/components/schemas/Body_handle_v2_items_in_list_to_v1_item_in_list_v2_to_v1_list_of_items_to_list_of_items_post"
+                                    }
+                                }
+                            },
+                            "required": True,
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Successful Response",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "items": {
+                                                "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__ItemInList"
+                                            },
+                                            "type": "array",
+                                            "title": "Response Handle V2 Items In List To V1 Item In List V2 To V1 List Of Items To List Of Items Post",
+                                        }
+                                    }
+                                },
+                            },
+                            "422": {
+                                "description": "Validation Error",
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "$ref": "#/components/schemas/HTTPValidationError"
+                                        }
+                                    }
+                                },
+                            },
+                        },
+                    }
+                },
+            },
+            "components": {
+                "schemas": pydantic_snapshot(
+                    v1=snapshot(
+                        {
+                            "Body_handle_v2_items_in_list_to_v1_item_in_list_v2_to_v1_list_of_items_to_list_of_items_post": {
+                                "properties": {
+                                    "data1": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__ItemInList"
+                                        },
+                                        "type": "array",
+                                        "title": "Data1",
+                                    },
+                                    "data2": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__ItemInList"
+                                        },
+                                        "type": "array",
+                                        "title": "Data2",
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["data1", "data2"],
+                                "title": "Body_handle_v2_items_in_list_to_v1_item_in_list_v2_to_v1_list_of_items_to_list_of_items_post",
+                            },
+                            "Body_handle_v2_same_name_to_v1_v2_to_v1_same_name_post": {
+                                "properties": {
+                                    "item1": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item"
+                                    },
+                                    "item2": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__Item"
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["item1", "item2"],
+                                "title": "Body_handle_v2_same_name_to_v1_v2_to_v1_same_name_post",
+                            },
+                            "HTTPValidationError": {
+                                "properties": {
+                                    "detail": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/ValidationError"
+                                        },
+                                        "type": "array",
+                                        "title": "Detail",
+                                    }
+                                },
+                                "type": "object",
+                                "title": "HTTPValidationError",
+                            },
+                            "ValidationError": {
+                                "properties": {
+                                    "loc": {
+                                        "items": {
+                                            "anyOf": [
+                                                {"type": "string"},
+                                                {"type": "integer"},
+                                            ]
+                                        },
+                                        "type": "array",
+                                        "title": "Location",
+                                    },
+                                    "msg": {"type": "string", "title": "Message"},
+                                    "type": {"type": "string", "title": "Error Type"},
+                                },
+                                "type": "object",
+                                "required": ["loc", "msg", "type"],
+                                "title": "ValidationError",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv1__Item": {
+                                "properties": {
+                                    "title": {"type": "string", "title": "Title"},
+                                    "size": {"type": "integer", "title": "Size"},
+                                    "description": {
+                                        "type": "string",
+                                        "title": "Description",
+                                    },
+                                    "sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__SubItem"
+                                    },
+                                    "multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["title", "size", "sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv1__ItemInList": {
+                                "properties": {
+                                    "name1": {"type": "string", "title": "Name1"}
+                                },
+                                "type": "object",
+                                "required": ["name1"],
+                                "title": "ItemInList",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv1__SubItem": {
+                                "properties": {
+                                    "name": {"type": "string", "title": "Name"}
+                                },
+                                "type": "object",
+                                "required": ["name"],
+                                "title": "SubItem",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__Item": {
+                                "properties": {
+                                    "new_title": {
+                                        "type": "string",
+                                        "title": "New Title",
+                                    },
+                                    "new_size": {
+                                        "type": "integer",
+                                        "title": "New Size",
+                                    },
+                                    "new_description": {
+                                        "type": "string",
+                                        "title": "New Description",
+                                    },
+                                    "new_sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem"
+                                    },
+                                    "new_multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "New Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["new_title", "new_size", "new_sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__ItemInList": {
+                                "properties": {
+                                    "name2": {"type": "string", "title": "Name2"}
+                                },
+                                "type": "object",
+                                "required": ["name2"],
+                                "title": "ItemInList",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem": {
+                                "properties": {
+                                    "new_sub_name": {
+                                        "type": "string",
+                                        "title": "New Sub Name",
+                                    }
+                                },
+                                "type": "object",
+                                "required": ["new_sub_name"],
+                                "title": "SubItem",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2b__Item": {
+                                "properties": {
+                                    "dup_title": {
+                                        "type": "string",
+                                        "title": "Dup Title",
+                                    },
+                                    "dup_size": {
+                                        "type": "integer",
+                                        "title": "Dup Size",
+                                    },
+                                    "dup_description": {
+                                        "type": "string",
+                                        "title": "Dup Description",
+                                    },
+                                    "dup_sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__SubItem"
+                                    },
+                                    "dup_multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "Dup Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["dup_title", "dup_size", "dup_sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2b__ItemInList": {
+                                "properties": {
+                                    "dup_name2": {
+                                        "type": "string",
+                                        "title": "Dup Name2",
+                                    }
+                                },
+                                "type": "object",
+                                "required": ["dup_name2"],
+                                "title": "ItemInList",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2b__SubItem": {
+                                "properties": {
+                                    "dup_sub_name": {
+                                        "type": "string",
+                                        "title": "Dup Sub Name",
+                                    }
+                                },
+                                "type": "object",
+                                "required": ["dup_sub_name"],
+                                "title": "SubItem",
+                            },
+                        }
+                    ),
+                    v2=snapshot(
+                        {
+                            "Body_handle_v2_items_in_list_to_v1_item_in_list_v2_to_v1_list_of_items_to_list_of_items_post": {
+                                "properties": {
+                                    "data1": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__ItemInList"
+                                        },
+                                        "type": "array",
+                                        "title": "Data1",
+                                    },
+                                    "data2": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__ItemInList"
+                                        },
+                                        "type": "array",
+                                        "title": "Data2",
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["data1", "data2"],
+                                "title": "Body_handle_v2_items_in_list_to_v1_item_in_list_v2_to_v1_list_of_items_to_list_of_items_post",
+                            },
+                            "Body_handle_v2_same_name_to_v1_v2_to_v1_same_name_post": {
+                                "properties": {
+                                    "item1": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__Item-Input"
+                                    },
+                                    "item2": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__Item"
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["item1", "item2"],
+                                "title": "Body_handle_v2_same_name_to_v1_v2_to_v1_same_name_post",
+                            },
+                            "HTTPValidationError": {
+                                "properties": {
+                                    "detail": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/ValidationError"
+                                        },
+                                        "type": "array",
+                                        "title": "Detail",
+                                    }
+                                },
+                                "type": "object",
+                                "title": "HTTPValidationError",
+                            },
+                            "ValidationError": {
+                                "properties": {
+                                    "loc": {
+                                        "items": {
+                                            "anyOf": [
+                                                {"type": "string"},
+                                                {"type": "integer"},
+                                            ]
+                                        },
+                                        "type": "array",
+                                        "title": "Location",
+                                    },
+                                    "msg": {"type": "string", "title": "Message"},
+                                    "type": {"type": "string", "title": "Error Type"},
+                                },
+                                "type": "object",
+                                "required": ["loc", "msg", "type"],
+                                "title": "ValidationError",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv1__Item": {
+                                "properties": {
+                                    "title": {"type": "string", "title": "Title"},
+                                    "size": {"type": "integer", "title": "Size"},
+                                    "description": {
+                                        "type": "string",
+                                        "title": "Description",
+                                    },
+                                    "sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__SubItem"
+                                    },
+                                    "multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv1__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["title", "size", "sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv1__ItemInList": {
+                                "properties": {
+                                    "name1": {"type": "string", "title": "Name1"}
+                                },
+                                "type": "object",
+                                "required": ["name1"],
+                                "title": "ItemInList",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv1__SubItem": {
+                                "properties": {
+                                    "name": {"type": "string", "title": "Name"}
+                                },
+                                "type": "object",
+                                "required": ["name"],
+                                "title": "SubItem",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__Item": {
+                                "properties": {
+                                    "new_title": {
+                                        "type": "string",
+                                        "title": "New Title",
+                                    },
+                                    "new_size": {
+                                        "type": "integer",
+                                        "title": "New Size",
+                                    },
+                                    "new_description": {
+                                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                                        "title": "New Description",
+                                    },
+                                    "new_sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem"
+                                    },
+                                    "new_multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "New Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["new_title", "new_size", "new_sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__Item-Input": {
+                                "properties": {
+                                    "new_title": {
+                                        "type": "string",
+                                        "title": "New Title",
+                                    },
+                                    "new_size": {
+                                        "type": "integer",
+                                        "title": "New Size",
+                                    },
+                                    "new_description": {
+                                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                                        "title": "New Description",
+                                    },
+                                    "new_sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem"
+                                    },
+                                    "new_multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "New Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["new_title", "new_size", "new_sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__ItemInList": {
+                                "properties": {
+                                    "name2": {"type": "string", "title": "Name2"}
+                                },
+                                "type": "object",
+                                "required": ["name2"],
+                                "title": "ItemInList",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2__SubItem": {
+                                "properties": {
+                                    "new_sub_name": {
+                                        "type": "string",
+                                        "title": "New Sub Name",
+                                    }
+                                },
+                                "type": "object",
+                                "required": ["new_sub_name"],
+                                "title": "SubItem",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2b__Item": {
+                                "properties": {
+                                    "dup_title": {
+                                        "type": "string",
+                                        "title": "Dup Title",
+                                    },
+                                    "dup_size": {
+                                        "type": "integer",
+                                        "title": "Dup Size",
+                                    },
+                                    "dup_description": {
+                                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                                        "title": "Dup Description",
+                                    },
+                                    "dup_sub": {
+                                        "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__SubItem"
+                                    },
+                                    "dup_multi": {
+                                        "items": {
+                                            "$ref": "#/components/schemas/tests__test_pydantic_v1_v2_multifile__modelsv2b__SubItem"
+                                        },
+                                        "type": "array",
+                                        "title": "Dup Multi",
+                                        "default": [],
+                                    },
+                                },
+                                "type": "object",
+                                "required": ["dup_title", "dup_size", "dup_sub"],
+                                "title": "Item",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2b__ItemInList": {
+                                "properties": {
+                                    "dup_name2": {
+                                        "type": "string",
+                                        "title": "Dup Name2",
+                                    }
+                                },
+                                "type": "object",
+                                "required": ["dup_name2"],
+                                "title": "ItemInList",
+                            },
+                            "tests__test_pydantic_v1_v2_multifile__modelsv2b__SubItem": {
+                                "properties": {
+                                    "dup_sub_name": {
+                                        "type": "string",
+                                        "title": "Dup Sub Name",
+                                    }
+                                },
+                                "type": "object",
+                                "required": ["dup_sub_name"],
+                                "title": "SubItem",
+                            },
+                        }
+                    ),
+                ),
+            },
+        }
+    )
+# Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# https://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
+import copy
+
+from boto3.compat import collections_abc
+from boto3.docs.utils import DocumentModifiedShape
+from boto3.dynamodb.conditions import ConditionBase, ConditionExpressionBuilder
+from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
+
+
+def register_high_level_interface(base_classes, **kwargs):
+    base_classes.insert(0, DynamoDBHighLevelResource)
+
+
+class _ForgetfulDict(dict):
+    """A dictionary that discards any items set on it. For use as `memo` in
+    `copy.deepcopy()` when every instance of a repeated object in the deepcopied
+    data structure should result in a separate copy.
+    """
+
+    def __setitem__(self, key, value):
+        pass
+
+
+def copy_dynamodb_params(params, **kwargs):
+    return copy.deepcopy(params, memo=_ForgetfulDict())
+
+
+class DynamoDBHighLevelResource:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Apply handler that creates a copy of the user provided dynamodb
+        # item such that it can be modified.
+        self.meta.client.meta.events.register(
+            'provide-client-params.dynamodb',
+            copy_dynamodb_params,
+            unique_id='dynamodb-create-params-copy',
+        )
+
+        self._injector = TransformationInjector()
+        # Apply the handler that generates condition expressions including
+        # placeholders.
+        self.meta.client.meta.events.register(
+            'before-parameter-build.dynamodb',
+            self._injector.inject_condition_expressions,
+            unique_id='dynamodb-condition-expression',
+        )
+
+        # Apply the handler that serializes the request from python
+        # types to dynamodb types.
+        self.meta.client.meta.events.register(
+            'before-parameter-build.dynamodb',
+            self._injector.inject_attribute_value_input,
+            unique_id='dynamodb-attr-value-input',
+        )
+
+        # Apply the handler that deserializes the response from dynamodb
+        # types to python types.
+        self.meta.client.meta.events.register(
+            'after-call.dynamodb',
+            self._injector.inject_attribute_value_output,
+            unique_id='dynamodb-attr-value-output',
+        )
+
+        # Apply the documentation customizations to account for
+        # the transformations.
+        attr_value_shape_docs = DocumentModifiedShape(
+            'AttributeValue',
+            new_type='valid DynamoDB type',
+            new_description=(
+                '- The value of the attribute. The valid value types are '
+                'listed in the '
+                ':ref:`DynamoDB Reference Guide<ref_valid_dynamodb_types>`.'
+            ),
+            new_example_value=(
+                '\'string\'|123|Binary(b\'bytes\')|True|None|set([\'string\'])'
+                '|set([123])|set([Binary(b\'bytes\')])|[]|{}'
+            ),
+        )
+
+        key_expression_shape_docs = DocumentModifiedShape(
+            'KeyExpression',
+            new_type=(
+                'condition from :py:class:`boto3.dynamodb.conditions.Key` '
+                'method'
+            ),
+            new_description=(
+                'The condition(s) a key(s) must meet. Valid conditions are '
+                'listed in the '
+                ':ref:`DynamoDB Reference Guide<ref_dynamodb_conditions>`.'
+            ),
+            new_example_value='Key(\'mykey\').eq(\'myvalue\')',
+        )
+
+        con_expression_shape_docs = DocumentModifiedShape(
+            'ConditionExpression',
+            new_type=(
+                'condition from :py:class:`boto3.dynamodb.conditions.Attr` '
+                'method'
+            ),
+            new_description=(
+                'The condition(s) an attribute(s) must meet. Valid conditions '
+                'are listed in the '
+                ':ref:`DynamoDB Reference Guide<ref_dynamodb_conditions>`.'
+            ),
+            new_example_value='Attr(\'myattribute\').eq(\'myvalue\')',
+        )
+
+        self.meta.client.meta.events.register(
+            'docs.*.dynamodb.*.complete-section',
+            attr_value_shape_docs.replace_documentation_for_matching_shape,
+            unique_id='dynamodb-attr-value-docs',
+        )
+
+        self.meta.client.meta.events.register(
+            'docs.*.dynamodb.*.complete-section',
+            key_expression_shape_docs.replace_documentation_for_matching_shape,
+            unique_id='dynamodb-key-expression-docs',
+        )
+
+        self.meta.client.meta.events.register(
+            'docs.*.dynamodb.*.complete-section',
+            con_expression_shape_docs.replace_documentation_for_matching_shape,
+            unique_id='dynamodb-cond-expression-docs',
+        )
+
+
+class TransformationInjector:
+    """Injects the transformations into the user provided parameters."""
+
+    def __init__(
+        self,
+        transformer=None,
+        condition_builder=None,
+        serializer=None,
+        deserializer=None,
+    ):
+        self._transformer = transformer
+        if transformer is None:
+            self._transformer = ParameterTransformer()
+
+        self._condition_builder = condition_builder
+        if condition_builder is None:
+            self._condition_builder = ConditionExpressionBuilder()
+
+        self._serializer = serializer
+        if serializer is None:
+            self._serializer = TypeSerializer()
+
+        self._deserializer = deserializer
+        if deserializer is None:
+            self._deserializer = TypeDeserializer()
+
+    def inject_condition_expressions(self, params, model, **kwargs):
+        """Injects the condition expression transformation into the parameters
+
+        This injection includes transformations for ConditionExpression shapes
+        and KeyExpression shapes. It also handles any placeholder names and
+        values that are generated when transforming the condition expressions.
+        """
+        self._condition_builder.reset()
+        generated_names = {}
+        generated_values = {}
+
+        # Create and apply the Condition Expression transformation.
+        transformation = ConditionExpressionTransformation(
+            self._condition_builder,
+            placeholder_names=generated_names,
+            placeholder_values=generated_values,
+            is_key_condition=False,
+        )
+        self._transformer.transform(
+            params, model.input_shape, transformation, 'ConditionExpression'
+        )
+
+        # Create and apply the Key Condition Expression transformation.
+        transformation = ConditionExpressionTransformation(
+            self._condition_builder,
+            placeholder_names=generated_names,
+            placeholder_values=generated_values,
+            is_key_condition=True,
+        )
+        self._transformer.transform(
+            params, model.input_shape, transformation, 'KeyExpression'
+        )
+
+        expr_attr_names_input = 'ExpressionAttributeNames'
+        expr_attr_values_input = 'ExpressionAttributeValues'
+
+        # Now that all of the condition expression transformation are done,
+        # update the placeholder dictionaries in the request.
+        if expr_attr_names_input in params:
+            params[expr_attr_names_input].update(generated_names)
+        else:
+            if generated_names:
+                params[expr_attr_names_input] = generated_names
+
+        if expr_attr_values_input in params:
+            params[expr_attr_values_input].update(generated_values)
+        else:
+            if generated_values:
+                params[expr_attr_values_input] = generated_values
+
+    def inject_attribute_value_input(self, params, model, **kwargs):
+        """Injects DynamoDB serialization into parameter input"""
+        self._transformer.transform(
+            params,
+            model.input_shape,
+            self._serializer.serialize,
+            'AttributeValue',
+        )
+
+    def inject_attribute_value_output(self, parsed, model, **kwargs):
+        """Injects DynamoDB deserialization into responses"""
+        if model.output_shape is not None:
+            self._transformer.transform(
+                parsed,
+                model.output_shape,
+                self._deserializer.deserialize,
+                'AttributeValue',
+            )
+
+
+class ConditionExpressionTransformation:
+    """Provides a transformation for condition expressions
+
+    The ``ParameterTransformer`` class can call this class directly
+    to transform the condition expressions in the parameters provided.
+    """
+
+    def __init__(
+        self,
+        condition_builder,
+        placeholder_names,
+        placeholder_values,
+        is_key_condition=False,
+    ):
+        self._condition_builder = condition_builder
+        self._placeholder_names = placeholder_names
+        self._placeholder_values = placeholder_values
+        self._is_key_condition = is_key_condition
+
+    def __call__(self, value):
+        if isinstance(value, ConditionBase):
+            # Create a conditional expression string with placeholders
+            # for the provided condition.
+            built_expression = self._condition_builder.build_expression(
+                value, is_key_condition=self._is_key_condition
+            )
+
+            self._placeholder_names.update(
+                built_expression.attribute_name_placeholders
+            )
+            self._placeholder_values.update(
+                built_expression.attribute_value_placeholders
+            )
+
+            return built_expression.condition_expression
+        # Use the user provided value if it is not a ConditonBase object.
+        return value
+
+
+class ParameterTransformer:
+    """Transforms the input to and output from botocore based on shape"""
+
+    def transform(self, params, model, transformation, target_shape):
+        """Transforms the dynamodb input to or output from botocore
+
+        It applies a specified transformation whenever a specific shape name
+        is encountered while traversing the parameters in the dictionary.
+
+        :param params: The parameters structure to transform.
+        :param model: The operation model.
+        :param transformation: The function to apply the parameter
+        :param target_shape: The name of the shape to apply the
+            transformation to
+        """
+        self._transform_parameters(model, params, transformation, target_shape)
+
+    def _transform_parameters(
+        self, model, params, transformation, target_shape
+    ):
+        type_name = model.type_name
+        if type_name in ('structure', 'map', 'list'):
+            getattr(self, f'_transform_{type_name}')(
+                model, params, transformation, target_shape
+            )
+
+    def _transform_structure(
+        self, model, params, transformation, target_shape
+    ):
+        if not isinstance(params, collections_abc.Mapping):
+            return
+        for param in params:
+            if param in model.members:
+                member_model = model.members[param]
+                member_shape = member_model.name
+                if member_shape == target_shape:
+                    params[param] = transformation(params[param])
+                else:
+                    self._transform_parameters(
+                        member_model,
+                        params[param],
+                        transformation,
+                        target_shape,
+                    )
+
+    def _transform_map(self, model, params, transformation, target_shape):
+        if not isinstance(params, collections_abc.Mapping):
+            return
+        value_model = model.value
+        value_shape = value_model.name
+        for key, value in params.items():
+            if value_shape == target_shape:
+                params[key] = transformation(value)
+            else:
+                self._transform_parameters(
+                    value_model, params[key], transformation, target_shape
+                )
+
+    def _transform_list(self, model, params, transformation, target_shape):
+        if not isinstance(params, collections_abc.MutableSequence):
+            return
+        member_model = model.member
+        member_shape = member_model.name
+        for i, item in enumerate(params):
+            if member_shape == target_shape:
+                params[i] = transformation(item)
+            else:
+                self._transform_parameters(
+                    member_model, params[i], transformation, target_shape
+                )
+# mypy: allow-untyped-defs
+from __future__ import annotations
+
+import re
+
+from _pytest import deprecated
+from _pytest.compat import legacy_path
+from _pytest.pytester import Pytester
+import pytest
+from pytest import PytestDeprecationWarning
+
+
+@pytest.mark.parametrize("plugin", sorted(deprecated.DEPRECATED_EXTERNAL_PLUGINS))
+@pytest.mark.filterwarnings("default")
+def test_external_plugins_integrated(pytester: Pytester, plugin) -> None:
+    pytester.syspathinsert()
+    pytester.makepyfile(**{plugin: ""})
+
+    with pytest.warns(pytest.PytestConfigWarning):
+        pytester.parseconfig("-p", plugin)
+
+
+def test_hookspec_via_function_attributes_are_deprecated():
+    from _pytest.config import PytestPluginManager
+
+    pm = PytestPluginManager()
+
+    class DeprecatedHookMarkerSpec:
+        def pytest_bad_hook(self):
+            pass
+
+        pytest_bad_hook.historic = False  # type: ignore[attr-defined]
+
+    with pytest.warns(
+        PytestDeprecationWarning,
+        match=r"Please use the pytest\.hookspec\(historic=False\) decorator",
+    ) as recorder:
+        pm.add_hookspecs(DeprecatedHookMarkerSpec)
+    (record,) = recorder
+    assert (
+        record.lineno
+        == DeprecatedHookMarkerSpec.pytest_bad_hook.__code__.co_firstlineno
+    )
+    assert record.filename == __file__
+
+
+def test_hookimpl_via_function_attributes_are_deprecated():
+    from _pytest.config import PytestPluginManager
+
+    pm = PytestPluginManager()
+
+    class DeprecatedMarkImplPlugin:
+        def pytest_runtest_call(self):
+            pass
+
+        pytest_runtest_call.tryfirst = True  # type: ignore[attr-defined]
+
+    with pytest.warns(
+        PytestDeprecationWarning,
+        match=r"Please use the pytest.hookimpl\(tryfirst=True\)",
+    ) as recorder:
+        pm.register(DeprecatedMarkImplPlugin())
+    (record,) = recorder
+    assert (
+        record.lineno
+        == DeprecatedMarkImplPlugin.pytest_runtest_call.__code__.co_firstlineno
+    )
+    assert record.filename == __file__
+
+
+def test_yield_fixture_is_deprecated() -> None:
+    with pytest.warns(DeprecationWarning, match=r"yield_fixture is deprecated"):
+
+        @pytest.yield_fixture
+        def fix():
+            assert False
+
+
+def test_private_is_deprecated() -> None:
+    class PrivateInit:
+        def __init__(self, foo: int, *, _ispytest: bool = False) -> None:
+            deprecated.check_ispytest(_ispytest)
+
+    with pytest.warns(
+        pytest.PytestDeprecationWarning, match="private pytest class or function"
+    ):
+        PrivateInit(10)
+
+    # Doesn't warn.
+    PrivateInit(10, _ispytest=True)
+
+
+def test_node_ctor_fspath_argument_is_deprecated(pytester: Pytester) -> None:
+    mod = pytester.getmodulecol("")
+
+    class MyFile(pytest.File):
+        def collect(self):
+            raise NotImplementedError()
+
+    with pytest.warns(
+        pytest.PytestDeprecationWarning,
+        match=re.escape(
+            "The (fspath: py.path.local) argument to MyFile is deprecated."
+        ),
+    ):
+        MyFile.from_parent(
+            parent=mod.parent,
+            fspath=legacy_path("bla"),
+        )
+from __future__ import annotations
+
+import collections
+from collections.abc import Callable
+import functools
+import gc
+import sys
+import traceback
+from typing import NamedTuple
+from typing import TYPE_CHECKING
+import warnings
+
+from _pytest.config import Config
+from _pytest.nodes import Item
+from _pytest.stash import StashKey
+from _pytest.tracemalloc import tracemalloc_message
+import pytest
+
+
+if TYPE_CHECKING:
+    pass
+
+if sys.version_info < (3, 11):
+    from exceptiongroup import ExceptionGroup
+
+
+# This is a stash item and not a simple constant to allow pytester to override it.
+gc_collect_iterations_key = StashKey[int]()
+
+
+def gc_collect_harder(iterations: int) -> None:
+    for _ in range(iterations):
+        gc.collect()
+
+
+class UnraisableMeta(NamedTuple):
+    msg: str
+    cause_msg: str
+    exc_value: BaseException | None
+
+
+unraisable_exceptions: StashKey[collections.deque[UnraisableMeta | BaseException]] = (
+    StashKey()
+)
+
+
+def collect_unraisable(config: Config) -> None:
+    pop_unraisable = config.stash[unraisable_exceptions].pop
+    errors: list[pytest.PytestUnraisableExceptionWarning | RuntimeError] = []
+    meta = None
+    hook_error = None
+    try:
+        while True:
+            try:
+                meta = pop_unraisable()
+            except IndexError:
+                break
+
+            if isinstance(meta, BaseException):
+                hook_error = RuntimeError("Failed to process unraisable exception")
+                hook_error.__cause__ = meta
+                errors.append(hook_error)
+                continue
+
+            msg = meta.msg
+            try:
+                warnings.warn(pytest.PytestUnraisableExceptionWarning(msg))
+            except pytest.PytestUnraisableExceptionWarning as e:
+                # This except happens when the warning is treated as an error (e.g. `-Werror`).
+                if meta.exc_value is not None:
+                    # Exceptions have a better way to show the traceback, but
+                    # warnings do not, so hide the traceback from the msg and
+                    # set the cause so the traceback shows up in the right place.
+                    e.args = (meta.cause_msg,)
+                    e.__cause__ = meta.exc_value
+                errors.append(e)
+
+        if len(errors) == 1:
+            raise errors[0]
+        if errors:
+            raise ExceptionGroup("multiple unraisable exception warnings", errors)
+    finally:
+        del errors, meta, hook_error
+
+
+def cleanup(
+    *, config: Config, prev_hook: Callable[[sys.UnraisableHookArgs], object]
+) -> None:
+    # A single collection doesn't necessarily collect everything.
+    # Constant determined experimentally by the Trio project.
+    gc_collect_iterations = config.stash.get(gc_collect_iterations_key, 5)
+    try:
+        try:
+            gc_collect_harder(gc_collect_iterations)
+            collect_unraisable(config)
+        finally:
+            sys.unraisablehook = prev_hook
+    finally:
+        del config.stash[unraisable_exceptions]
+
+
+def unraisable_hook(
+    unraisable: sys.UnraisableHookArgs,
+    /,
+    *,
+    append: Callable[[UnraisableMeta | BaseException], object],
+) -> None:
+    try:
+        # we need to compute these strings here as they might change after
+        # the unraisablehook finishes and before the metadata object is
+        # collected by a pytest hook
+        err_msg = (
+            "Exception ignored in" if unraisable.err_msg is None else unraisable.err_msg
+        )
+        summary = f"{err_msg}: {unraisable.object!r}"
+        traceback_message = "\n\n" + "".join(
+            traceback.format_exception(
+                unraisable.exc_type,
+                unraisable.exc_value,
+                unraisable.exc_traceback,
+            )
+        )
+        tracemalloc_tb = "\n" + tracemalloc_message(unraisable.object)
+        msg = summary + traceback_message + tracemalloc_tb
+        cause_msg = summary + tracemalloc_tb
+
+        append(
+            UnraisableMeta(
+                msg=msg,
+                cause_msg=cause_msg,
+                exc_value=unraisable.exc_value,
+            )
+        )
+    except BaseException as e:
+        append(e)
+        # Raising this will cause the exception to be logged twice, once in our
+        # collect_unraisable and once by the unraisablehook calling machinery
+        # which is fine - this should never happen anyway and if it does
+        # it should probably be reported as a pytest bug.
+        raise
+
+
+def pytest_configure(config: Config) -> None:
+    prev_hook = sys.unraisablehook
+    deque: collections.deque[UnraisableMeta | BaseException] = collections.deque()
+    config.stash[unraisable_exceptions] = deque
+    config.add_cleanup(functools.partial(cleanup, config=config, prev_hook=prev_hook))
+    sys.unraisablehook = functools.partial(unraisable_hook, append=deque.append)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_setup(item: Item) -> None:
+    collect_unraisable(item.config)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_call(item: Item) -> None:
+    collect_unraisable(item.config)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item: Item) -> None:
+    collect_unraisable(item.config)
+from fastapi import FastAPI, status
+
+app = FastAPI()
+
+
+@app.post("/items/", status_code=status.HTTP_201_CREATED)
+async def create_item(name: str):
+    return {"name": name}

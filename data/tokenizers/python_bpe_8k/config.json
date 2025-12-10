@@ -1,0 +1,12 @@
+{
+  "type": "bpe",
+  "vocab_size": 8000,
+  "target_vocab_size": 8000,
+  "min_frequency": 2,
+  "special_tokens": [
+    "<|endoftext|>",
+    "<|pad|>"
+  ],
+  "trained_on": "C:\\Users\\07013\\Desktop\\1205muzi5090\\nas\\..\\data\\code_token_bigdata\\train.txt",
+  "corpus_size_mb": 101.22
+}

@@ -1,0 +1,129 @@
+{
+  "total": 20,
+  "passed": 0,
+  "failed": 20,
+  "collapse": 0,
+  "pass_rate": 0.0,
+  "results": [
+    {
+      "task_id": "add",
+      "passed": false,
+      "error": "SyntaxError: expected '(' (<string>, line 4)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "multiply",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 14) (<string>, line 11)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "max_value",
+      "passed": false,
+      "error": "SyntaxError: unmatched ')' (<string>, line 3)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "abs_value",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 10) (<string>, line 4)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "is_even",
+      "passed": false,
+      "error": "SyntaxError: invalid syntax (<string>, line 14)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "is_prime",
+      "passed": false,
+      "error": "AssertionError: ",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "factorial",
+      "passed": false,
+      "error": "SyntaxError: invalid syntax (<string>, line 4)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "fibonacci",
+      "passed": false,
+      "error": "SyntaxError: unexpected indent (<string>, line 10)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "sum_list",
+      "passed": false,
+      "error": "SyntaxError: invalid syntax (<string>, line 9)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "reverse_list",
+      "passed": false,
+      "error": "SyntaxError: unterminated string literal (detected at line 9) (<string>, line 9)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "find_max",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 17) (<string>, line 16)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "count_vowels",
+      "passed": false,
+      "error": "SyntaxError: closing parenthesis '}' does not match opening parenthesis '(' on line 3 (<string>, line 4)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "remove_duplicates",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 16) (<string>, line 3)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "is_palindrome",
+      "passed": false,
+      "error": "SyntaxError: unterminated string literal (detected at line 9) (<string>, line 9)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "gcd",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 17) (<string>, line 4)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "linear_search",
+      "passed": false,
+      "error": "SyntaxError: invalid syntax (<string>, line 4)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "bubble_sort",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 15) (<string>, line 5)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "flatten_list",
+      "passed": false,
+      "error": "SyntaxError: unexpected indent (<string>, line 8)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "string_reverse",
+      "passed": false,
+      "error": "SyntaxError: unterminated string literal (detected at line 8) (<string>, line 8)",
+      "collapse_detected": false
+    },
+    {
+      "task_id": "power",
+      "passed": false,
+      "error": "SyntaxError: unterminated triple-quoted string literal (detected at line 15) (<string>, line 7)",
+      "collapse_detected": false
+    }
+  ]
+}

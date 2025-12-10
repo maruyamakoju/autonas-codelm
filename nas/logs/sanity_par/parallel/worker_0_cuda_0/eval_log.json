@@ -1,0 +1,182 @@
+[
+  {
+    "task_id": 0,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 256,
+    "eval_time_s": 42.96527290344238,
+    "success": true,
+    "fitness": 0.5375519000568918,
+    "val_loss": 2.6888841207760623
+  },
+  {
+    "task_id": 1,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 27.908225059509277,
+    "success": true,
+    "fitness": 0.5365299300623818,
+    "val_loss": 2.716476172142377
+  },
+  {
+    "task_id": 2,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 37.72797346115112,
+    "success": true,
+    "fitness": 0.5370104876283572,
+    "val_loss": 2.703406776527104
+  },
+  {
+    "task_id": 3,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 58.21854519844055,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.0362848694413401
+  },
+  {
+    "task_id": 4,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 31.567626476287842,
+    "success": true,
+    "fitness": 0.5402062332617965,
+    "val_loss": 2.6205860585536014
+  },
+  {
+    "task_id": 5,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 44.74318814277649,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.027475859528448707
+  },
+  {
+    "task_id": 0,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 58.09083700180054,
+    "success": true,
+    "fitness": 0.9982199731536201,
+    "val_loss": 0.03281580610612954
+  },
+  {
+    "task_id": 1,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 34.02890205383301,
+    "success": true,
+    "fitness": 0.5373756354331738,
+    "val_loss": 2.6935890652993764
+  },
+  {
+    "task_id": 2,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 58.716349840164185,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.0410499968068906
+  },
+  {
+    "task_id": 3,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 58.614054679870605,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.035433762489392555
+  },
+  {
+    "task_id": 4,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 25.517667770385742,
+    "success": true,
+    "fitness": 0.5377360132099134,
+    "val_loss": 2.683993202378987
+  },
+  {
+    "task_id": 5,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 55.937214374542236,
+    "success": true,
+    "fitness": 0.9999648850172133,
+    "val_loss": 0.03952575035438459
+  },
+  {
+    "task_id": 0,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 56.467313289642334,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.03357587672618401
+  },
+  {
+    "task_id": 1,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 33.99667739868164,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.05278845289123691
+  },
+  {
+    "task_id": 2,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 40.7874710559845,
+    "success": true,
+    "fitness": 0.5376480768602176,
+    "val_loss": 2.6863262248907773
+  },
+  {
+    "task_id": 3,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 37.19524526596069,
+    "success": true,
+    "fitness": 1.0,
+    "val_loss": 0.03837517259384344
+  },
+  {
+    "task_id": 4,
+    "arch_type": "transformer",
+    "num_layers": 6,
+    "hidden_dim": 512,
+    "eval_time_s": 50.61849546432495,
+    "success": true,
+    "fitness": 0.5369784705295524,
+    "val_loss": 2.704272232714091
+  },
+  {
+    "task_id": 5,
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 512,
+    "eval_time_s": 29.82240104675293,
+    "success": true,
+    "fitness": 0.5367455055285418,
+    "val_loss": 2.7105921787855016
+  }
+]

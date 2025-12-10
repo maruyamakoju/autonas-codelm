@@ -1,0 +1,60 @@
+{
+  "experiment_name": "v1_smoke_test",
+  "final_metrics": {
+    "val_loss": 0.12132320990379637,
+    "val_ppl": 1.1289897540737428,
+    "best_val_loss": Infinity,
+    "num_params": 2675456,
+    "model_size_mb": 5.10302734375,
+    "latency_ms": 2.9501771926879883,
+    "total_steps": 300,
+    "train_time_s": 24.320130825042725,
+    "train_time_min": 0.4053355137507121,
+    "architecture": {
+      "arch_type": "transformer",
+      "num_layers": 4,
+      "hidden_dim": 256,
+      "num_heads": 8,
+      "ffn_multiplier": 3.0,
+      "normalization": "rmsnorm",
+      "activation": "gelu",
+      "position_encoding": "rope",
+      "attention_dropout": 0.1,
+      "residual_dropout": 0.1,
+      "vocab_size": 101,
+      "max_seq_length": 256,
+      "quantization": "fp16",
+      "pruning_ratio": 0.0
+    }
+  },
+  "total_steps": 3,
+  "all_metrics": [
+    {
+      "step": 100,
+      "timestamp": 1765200174.3346782,
+      "train_loss": 3.5676073598861695,
+      "train_ppl": 35.431716306510864,
+      "lr": 5.9999999999999995e-05,
+      "grad_norm": 1.4729217290878296,
+      "steps_per_sec": 52.17868149027636
+    },
+    {
+      "step": 200,
+      "timestamp": 1765200175.9772496,
+      "train_loss": 2.5621077013015747,
+      "train_ppl": 12.963110907801845,
+      "lr": 0.00011999999999999999,
+      "grad_norm": 1.5448095798492432,
+      "steps_per_sec": 56.1945476616543
+    },
+    {
+      "step": 300,
+      "timestamp": 1765200177.5265884,
+      "train_loss": 0.9668766179680824,
+      "train_ppl": 2.6297180048964033,
+      "lr": 0.00017999999999999998,
+      "grad_norm": 0.540989875793457,
+      "steps_per_sec": 58.72673590804009
+    }
+  ]
+}

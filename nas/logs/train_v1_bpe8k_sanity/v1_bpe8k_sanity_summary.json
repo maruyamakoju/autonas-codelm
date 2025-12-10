@@ -1,0 +1,42 @@
+{
+  "experiment_name": "v1_bpe8k_sanity",
+  "final_metrics": {
+    "val_loss": 5.437877576940601,
+    "val_ppl": 229.95360632370486,
+    "best_val_loss": Infinity,
+    "num_params": 6719744,
+    "model_size_mb": 12.81689453125,
+    "latency_ms": 5.163412094116211,
+    "total_steps": 100,
+    "train_time_s": 70.94254517555237,
+    "train_time_min": 1.1823757529258727,
+    "architecture": {
+      "arch_type": "transformer",
+      "num_layers": 4,
+      "hidden_dim": 256,
+      "num_heads": 8,
+      "ffn_multiplier": 3.0,
+      "normalization": "rmsnorm",
+      "activation": "gelu",
+      "position_encoding": "rope",
+      "attention_dropout": 0.1,
+      "residual_dropout": 0.1,
+      "vocab_size": 8000,
+      "max_seq_length": 256,
+      "quantization": "fp16",
+      "pruning_ratio": 0.0
+    }
+  },
+  "total_steps": 1,
+  "all_metrics": [
+    {
+      "step": 100,
+      "timestamp": 1765277613.4924,
+      "train_loss": 6.48406831741333,
+      "train_ppl": 654.6287738020318,
+      "lr": 1e-05,
+      "grad_norm": 0.9557072520256042,
+      "steps_per_sec": 35.42303387696514
+    }
+  ]
+}

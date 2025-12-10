@@ -43,9 +43,13 @@ models/
 # NAS best architectures are kept
 !nas/models/
 
-# Logs
+# Logs and checkpoints
 *.log
-logs/
+
+# Model checkpoints (too large for GitHub, use Git LFS or external storage)
+*.pt
+*.pth
+*.ckpt
 
 # OS
 .DS_Store
@@ -55,3 +59,17 @@ desktop.ini
 # Temporary files
 *.tmp
 *.temp
+nul
+NUL
+
+# Large training data (raw corpus)
+data/raw_python/
+data/code_char_big/
+data/code_token_bigdata/
+
+# Claude settings
+.claude/settings.local.json
+
+# Intermediate progress docs (optional: keep for reference)
+# BIGDATA_PROGRESS.md
+# BIGDATA_TRAINING_STATUS.md

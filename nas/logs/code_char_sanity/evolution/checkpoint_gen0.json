@@ -1,0 +1,54 @@
+{
+  "generation": 0,
+  "config": {
+    "population_size": 4,
+    "num_generations": 2,
+    "elite_ratio": 0.2,
+    "tournament_size": 3,
+    "mutation_rate": 0.3,
+    "crossover_rate": 0.7,
+    "evaluation_mode": "fast",
+    "parallel_gpus": [
+      "cuda:0"
+    ],
+    "log_dir": "logs/code_char_sanity/evolution",
+    "save_frequency": 5
+  },
+  "fitness_history": [
+    {
+      "generation": 0,
+      "num_evaluated": 4,
+      "num_valid": 4,
+      "num_elite": 1,
+      "best_fitness": 0.9378750324249268,
+      "mean_fitness": 0.7306631677784026,
+      "std_fitness": 0.20687410768880815,
+      "time_minutes": 0.9766498684883118
+    }
+  ],
+  "best_architecture": {
+    "accuracy": 0.8757500648498535,
+    "model_size_mb": 27.5615234375,
+    "latency_ms": 4.570739269256592,
+    "flops": 0,
+    "training_time_minutes": 0.3345655560493469,
+    "early_stopped": false,
+    "fitness": 0.9378750324249268,
+    "architecture": {
+      "arch_type": "transformer",
+      "num_layers": 6,
+      "hidden_dim": 512,
+      "num_heads": 8,
+      "ffn_multiplier": 2.5,
+      "normalization": "rmsnorm",
+      "activation": "swiglu",
+      "position_encoding": "rope",
+      "attention_dropout": 0.1,
+      "residual_dropout": 0.1,
+      "vocab_size": 281,
+      "max_seq_length": 128,
+      "quantization": "fp16",
+      "pruning_ratio": 0.0
+    }
+  }
+}

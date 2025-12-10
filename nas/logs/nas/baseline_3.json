@@ -1,0 +1,25 @@
+{
+  "accuracy": 0.3774368746015653,
+  "model_size_mb": 15.849755859375,
+  "latency_ms": 4.530637264251709,
+  "flops": 69206016,
+  "training_time_minutes": 0.013190229733784994,
+  "early_stopped": false,
+  "fitness": 0.6887184373007826,
+  "architecture": {
+    "arch_type": "transformer",
+    "num_layers": 4,
+    "hidden_dim": 256,
+    "num_heads": 4,
+    "ffn_multiplier": 2.0,
+    "normalization": "rmsnorm",
+    "activation": "silu",
+    "position_encoding": "rope",
+    "attention_dropout": 0.1,
+    "residual_dropout": 0.1,
+    "vocab_size": 50000,
+    "max_seq_length": 2048,
+    "quantization": "int8",
+    "pruning_ratio": 0.4
+  }
+}

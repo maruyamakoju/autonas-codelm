@@ -1,0 +1,119 @@
+{
+  "generation": 5,
+  "config": {
+    "population_size": 24,
+    "num_generations": 8,
+    "elite_ratio": 0.2,
+    "tournament_size": 3,
+    "mutation_rate": 0.3,
+    "crossover_rate": 0.7,
+    "evaluation_mode": "fast",
+    "parallel_gpus": [
+      "cuda:0"
+    ],
+    "two_stage": true,
+    "stage1_steps": 50,
+    "stage2_steps": 300,
+    "top_k_for_stage2": 6,
+    "log_dir": "logs/code_nas_v2_two_stage/evolution",
+    "save_frequency": 5
+  },
+  "fitness_history": [
+    {
+      "generation": 0,
+      "num_evaluated": 24,
+      "num_valid": 24,
+      "num_elite": 4,
+      "best_fitness": 0.9869937697860484,
+      "mean_fitness": 0.5977747091301316,
+      "std_fitness": 0.2219550192663824,
+      "time_minutes": 28.81002072095871
+    },
+    {
+      "generation": 1,
+      "num_evaluated": 24,
+      "num_valid": 24,
+      "num_elite": 4,
+      "best_fitness": 0.9933154084370206,
+      "mean_fitness": 0.6354147361141266,
+      "std_fitness": 0.202448792833151,
+      "time_minutes": 22.181631429990134
+    },
+    {
+      "generation": 2,
+      "num_evaluated": 24,
+      "num_valid": 24,
+      "num_elite": 4,
+      "best_fitness": 1.0,
+      "mean_fitness": 0.649124432631603,
+      "std_fitness": 0.19458274136869902,
+      "time_minutes": 18.16825728416443
+    },
+    {
+      "generation": 3,
+      "num_evaluated": 24,
+      "num_valid": 24,
+      "num_elite": 4,
+      "best_fitness": 1.0,
+      "mean_fitness": 0.6512202568051392,
+      "std_fitness": 0.20341587738355243,
+      "time_minutes": 13.42495945294698
+    },
+    {
+      "generation": 4,
+      "num_evaluated": 24,
+      "num_valid": 24,
+      "num_elite": 4,
+      "best_fitness": 1.0,
+      "mean_fitness": 0.6560023488262742,
+      "std_fitness": 0.1949668085315065,
+      "time_minutes": 14.919679494698842
+    },
+    {
+      "generation": 5,
+      "num_evaluated": 24,
+      "num_valid": 24,
+      "num_elite": 4,
+      "best_fitness": 1.0,
+      "mean_fitness": 0.6532297530873649,
+      "std_fitness": 0.2022081136352068,
+      "time_minutes": 13.621063466866811
+    }
+  ],
+  "best_architecture": {
+    "raw_metrics": {
+      "val_loss": 0.014193910040586389,
+      "val_ppl": 1.0142951011657715,
+      "accuracy": 0.9859063625335693,
+      "model_size_mb": 7.3236328125000005,
+      "latency_ms": 3.5321569442749023,
+      "flops": 0,
+      "num_params": 4803072,
+      "train_time_s": 3.517367124557495
+    },
+    "normalized_scores": {
+      "s_loss": 1.0,
+      "s_size": 1.0,
+      "s_latency": 1.0
+    },
+    "fitness": 1.0,
+    "training_time_minutes": 0.3959697961807251,
+    "early_stopped": false,
+    "architecture": {
+      "arch_type": "transformer",
+      "num_layers": 4,
+      "hidden_dim": 384,
+      "num_heads": 4,
+      "ffn_multiplier": 2.0,
+      "normalization": "layernorm",
+      "activation": "silu",
+      "position_encoding": "rope",
+      "attention_dropout": 0.1,
+      "residual_dropout": 0.1,
+      "vocab_size": 101,
+      "max_seq_length": 256,
+      "quantization": "fp16",
+      "pruning_ratio": 0.2
+    }
+  }
+}

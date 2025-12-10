@@ -1,0 +1,36 @@
+{
+  "architecture": {
+    "arch_type": "transformer",
+    "num_layers": 8,
+    "hidden_dim": 512,
+    "num_heads": 8,
+    "ffn_multiplier": 3.0,
+    "normalization": "layernorm",
+    "activation": "gelu",
+    "position_encoding": "rope",
+    "attention_dropout": 0.2,
+    "residual_dropout": 0.2,
+    "vocab_size": 8000,
+    "max_seq_length": 256,
+    "quantization": "fp16",
+    "pruning_ratio": 0.0
+  },
+  "experiment": {
+    "name": "L8_H512_strongreg",
+    "description": "Larger model (~25M params) with STRONG regularization to combat mode collapse",
+    "params_approx": "25M"
+  },
+  "regularization": {
+    "attention_dropout": 0.2,
+    "residual_dropout": 0.2,
+    "weight_decay": 0.05,
+    "label_smoothing": 0.1
+  },
+  "rationale": [
+    "LayerNorm instead of RMSNorm - more stable gradient flow",
+    "Dropout 0.2 (up from 0.1) - prevent overfitting to frequent tokens",
+    "FFN multiplier 3.0 (down from 4.0) - fewer params, less overfitting",
+    "Weight decay 0.05 (up from 0.01) - stronger L2 regularization",
+    "Label smoothing 0.1 - prevent overconfident predictions (key for collapse)"
+  ]
+}

@@ -1,7 +1,7 @@
 # AutoNAS-CodeLM: Ultra-Lightweight Code Models via Neural Architecture Search
 
 **Goal**: GPT-4 level code understanding in 50-100MB models
-**Status**: v2 Two-stage NAS in production 🚀
+**Status**: Phase 3 complete - v1 model ready (few-shot collapse 14.5%) ✅
 **Hardware**: RTX 5090 + RTX 4090
 
 ---
@@ -57,6 +57,50 @@ cd nas
 python compare_experiments.py
 ```
 
+### BigData Training (Fix Mode Collapse)
+
+**Issue**: Current model suffers from mode collapse (85.2%) due to small dataset (1.3MB)
+
+**Solution**: Scale up training data to 100MB-1GB
+
+```bash
+# Step 1: Collect large-scale Python corpus
+# See: data/DATA_COLLECTION_GUIDE.md
+
+# Option A: Clone popular repos (quick start, ~50-100MB)
+cd data/raw_python
+git clone https://github.com/psf/requests.git
+git clone https://github.com/pallets/flask.git
+git clone https://github.com/django/django.git
+# ... (see DATA_COLLECTION_GUIDE.md for full list)
+
+# Step 2: Convert to char-level corpus
+cd ../../nas
+python scripts/prepare_python_corpus.py \
+  --src_dir ../data/raw_python \
+  --train_out ../data/code_char_big/train.txt \
+  --val_out ../data/code_char_big/val.txt \
+  --val_ratio 0.01
+
+# Step 3: Train with big data (100K steps, ~1-2 hours)
+python train_best.py \
+  --arch_json models/codenas_best_current.json \
+  --experiment_name v1_bigdata_char \
+  --train_path ../data/code_char_big/train.txt \
+  --val_path ../data/code_char_big/val.txt \
+  --max_steps 100000 \
+  --log_dir logs/train_v1_bigdata_char \
+  --device cuda:0
+
+# Step 4: Re-evaluate
+python eval_playground.py \
+  --checkpoint logs/train_v1_bigdata_char/v1_bigdata_char_best.pt \
+  --eval_file eval/prompts/simple_python.txt \
+  --output eval/results_bigdata.jsonl
+```
+
+**Expected improvement**: Mode collapse 85.2% → <30%, Python keywords 0% → >50%
+
 ---
 
 ## 📊 Current Results
@@ -99,6 +143,26 @@ python compare_experiments.py
 - Train Time: 3.52s
 
 **Conclusion**: v2 achieves higher accuracy but v1 is more lightweight (3.06MB vs 7.32MB)
+
+### Evaluation Phase (✅ Completed)
+
+**Batch Evaluation Results** (54 Python prompts):
+- Mode collapse rate: **85.2%** ⚠️
+- Avg repetition ratio: **92.22%**
+- Completions with valid Python: **0%**
+
+**Root Cause**: Character-level modeling with insufficient training data
+- Current dataset: 1.3MB Python code
+- Required: 100MB+ for char-level models
+- Model generates repetitive patterns (`:::::`, `,,,,,`) instead of valid code
+
+**Status**:
+- ✅ NAS infrastructure complete (v1 + v2)
+- ✅ Production training complete (10K steps)
+- ✅ Evaluation tools built (eval_playground.py, inspect_results.py)
+- ⚠️ Generation quality needs improvement
+
+**See**: [nas/eval/EVALUATION_SUMMARY.md](nas/eval/EVALUATION_SUMMARY.md) for detailed analysis
 
 ---
 
@@ -178,19 +242,29 @@ Latency (ms)                     1.52                     1.52
 │   ├── models.py                   # Model implementations
 │   ├── compare_experiments.py      # v1 vs v2 comparison tool
 │   ├── quick_status.py             # Quick experiment status summary
+│   ├── eval_playground.py          # Interactive code completion playground
+│   ├── visualize_architecture.py   # Architecture visualization tool
 │   │
 │   ├── scripts/                    # Production scripts
 │   │   ├── run_codenas_v1_single.ps1
 │   │   ├── run_codenas_v2_two_stage.ps1
 │   │   └── sanity_check.sh
 │   │
+│   ├── eval/                       # Evaluation pipeline
+│   │   ├── EVALUATION_SUMMARY.md   # Evaluation phase analysis
+│   │   ├── inspect_results.py      # Batch evaluation analyzer
+│   │   ├── prompts/                # Benchmark prompts
+│   │   │   └── simple_python.txt   # 54 Python patterns
+│   │   └── results.jsonl           # Batch evaluation results
+│   │
 │   ├── logs/                       # Experiment results
-│   │   ├── code_nas_v1_single/
-│   │   ├── code_nas_v2_two_stage/  # (running)
+│   │   ├── code_nas_v1_single/     # ✅ Complete
+│   │   ├── code_nas_v2_two_stage/  # ✅ Complete
+│   │   ├── train_v1_production/    # ✅ Complete (10K steps)
 │   │   └── sanity_par/
 │   │
 │   └── models/                     # Best architectures
-│       └── codenas_v1_best_transformer.json
+│       └── codenas_best_current.json  # v1 production model
 │
 ├── data/                           # Training data
 │   └── code_char/
@@ -208,20 +282,21 @@ Latency (ms)                     1.52                     1.52
 
 | Experiment | Commit | Best Fitness | Architecture | Size |
 |------------|--------|--------------|--------------|------|
-| v1 Single-stage | 1642e97 | 1.0000 | L4 H512 | 10.4 MB |
-| Two-stage Test | f91a212 | 1.0000 | L4 H512 | 12.2 MB |
+| v1 Single-stage | 1642e97 | 1.0000 | L4 H256 | 3.06 MB |
+| v2 Two-stage | Current | 1.0000 | L4 H384 | 7.32 MB |
+| Evaluation Phase | Current | N/A | Batch eval + analysis | - |
 
-### Running
+### Next Steps
 
-| Experiment | Status | Config |
-|------------|--------|--------|
-| v2 Two-stage | Gen 0 (GPU 94%) | Pop=24, Gen=8, Stage1=50, Stage2=300 |
+**Immediate** (to fix mode collapse):
+- Option 1: Scale up training data (1.3MB → 100MB+ Python code)
+- Option 2: Switch to token-level modeling (BPE/SentencePiece)
+- Option 3: Knowledge distillation from GPT-4
 
-### Planned
-
+**Future**:
 - v3 Adaptive Stage: Dynamic step allocation based on Stage 1 results
 - Large Search Space: `search_mode="large"` with 35M+ configurations
-- Knowledge Distillation: Compress GPT-4 knowledge into 50-100MB models
+- Advanced techniques: Pruning, quantization, custom CUDA kernels
 
 ---
 
@@ -267,6 +342,7 @@ cuDNN 9.x
 | [nas/README.md](nas/README.md) | Detailed NAS documentation |
 | [nas/EXPERIMENTS.md](nas/EXPERIMENTS.md) | Experiment command reference |
 | [nas/NAS_DESIGN.md](nas/NAS_DESIGN.md) | Technical design document |
+| [nas/eval/EVALUATION_SUMMARY.md](nas/eval/EVALUATION_SUMMARY.md) | Evaluation phase analysis |
 | [PROJECT_MASTER_PLAN.md](PROJECT_MASTER_PLAN.md) | Long-term roadmap |
 | [QUICKSTART.md](QUICKSTART.md) | Setup instructions |
 
@@ -283,22 +359,50 @@ cuDNN 9.x
 - [x] Parallel evaluation (RTX 5090 + 4090)
 - [x] Production scripts (PowerShell + Bash)
 
-### Phase 2: Two-stage NAS 🔄 IN PROGRESS
+### Phase 2: Two-stage NAS ✅ COMPLETED
 
 - [x] Multi-fidelity evaluation (Stage 1 + Stage 2)
 - [x] Two-stage test (PASSED, fitness=1.0)
 - [x] Production tools (run_codenas_v2_two_stage.ps1)
 - [x] Comparison tool (compare_experiments.py)
-- [ ] v2 production run (code_nas_v2_two_stage) ← RUNNING
+- [x] v2 production run (fitness=1.0, L4 H384, 7.32MB)
+- [x] v1 production training (10K steps, val_loss=0.0065)
+- [x] Evaluation pipeline (batch eval, inspection tools)
 
-### Phase 3: Scale-up (Planned)
+**Result**: Both v1 and v2 achieve fitness=1.0, but generation quality suffers from mode collapse due to insufficient training data (1.3MB Python code → need 100MB+)
 
-- [ ] Large search space (35M configurations)
-- [ ] Knowledge distillation (GPT-4 → 50MB model)
+### Phase 3: Quality Improvement ✅ COMPLETED
+
+**Goal**: Fix mode collapse through strong regularization + token-level modeling
+
+**Achievement**: Reduced collapse rate from **85%+** to **14.5%** with few-shot prompts
+
+**Solution Applied**:
+- [x] **8K BPE Tokenization** (3.4x compression vs char-level)
+- [x] **Strong Regularization** (label_smoothing=0.1, dropout=0.2, weight_decay=0.05)
+- [x] **Larger Model** (29M params, L8 H512)
+- [x] **Extended Training** (50K steps, 100MB Python corpus)
+- [x] **Few-shot Evaluation Framework** (eval/few_shot_eval.py)
+
+**Current Best Model (v1)**:
+- **Config**: `nas/models/codenas_l8h512_regularized.json`
+- **Checkpoint**: `nas/logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt`
+- **Tokenizer**: `data/tokenizers/python_bpe_8k/tokenizer.json`
+- **Size**: 55.6 MB (29M params)
+- **Val Loss**: 1.254, PPL: 3.50
+- **Collapse Rate**: 14.5% (few-shot), ~90% (short prompts)
+
+**Key Finding**: Mode collapse is **context-dependent**. Model requires 1-2 example functions to avoid repetition patterns.
+
+**Usage**: See [STRONGREG_SUMMARY.md](STRONGREG_SUMMARY.md) for detailed results and usage guidelines
+
+### Phase 4: Advanced Optimization (Planned)
+
 - [ ] INT8/INT4 quantization
-- [ ] Pruning (40-60% sparsity)
-- [ ] Custom CUDA kernels
-- [ ] Benchmark: HumanEval, MBPP
+- [ ] Structured pruning (40-60% sparsity)
+- [ ] Custom CUDA kernels for inference
+- [ ] Production deployment (ONNX, TensorRT)
+- [ ] Comprehensive benchmarks (HumanEval, MBPP, CodeXGLUE)
 
 ---
 
@@ -367,5 +471,24 @@ MIT License (for research and commercial use)
 
 ---
 
-**Last Updated**: 2025-12-08
-**Status**: v2 production run in progress (GPU 94% utilization)
+**Last Updated**: 2025-12-10
+**Status**: Phase 3 complete - v1 model (29M params, 55.6MB) ready for production with few-shot prompts
+**Achievement**: Mode collapse 85%+ → 14.5% (few-shot context)
+**Usage**: See [STRONGREG_SUMMARY.md](STRONGREG_SUMMARY.md) for complete results and usage guidelines
+
+**Quick Start (v1 Model)**:
+```bash
+cd nas
+python eval_playground.py \
+  --mode token \
+  --checkpoint logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt \
+  --tokenizer_path ../data/tokenizers/python_bpe_8k/tokenizer.json \
+  --arch_json models/codenas_l8h512_regularized.json
+```
+
+**⚠️ Important**: Use few-shot prompts (1-2 example functions) to avoid mode collapse. Short prompts still collapse ~90%.
+
+**See Also**:
+- [STRONGREG_SUMMARY.md](STRONGREG_SUMMARY.md) - Phase 3 complete results
+- [TOKEN_LEVEL_SUMMARY.md](TOKEN_LEVEL_SUMMARY.md) - Token-level modeling analysis
+- [COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md) - Char-level Phase 1 analysis

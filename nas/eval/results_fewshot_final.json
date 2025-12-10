@@ -1,0 +1,403 @@
+{
+  "checkpoint": "logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt",
+  "step": 50000,
+  "val_loss": 1.2538782214595272,
+  "categories": {
+    "function": [
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    This is not a b    and this file is not\n    This is the b, the License is a\n    return a copy of (for a copy) is a\n\n    if is_torch_avail",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n    The b model is the class of the b layer:\n\n    def __init__(self, b: b) -> b:\n        super().__init__()\n        self.b = b\n        self.b",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n    This is a string on the class of the if the same key or b.\n    \"\"\"\n    if \"b\" in \"c\" and \"b\" in \"c\" and \"b\" in \"c\" and \"b\"\n    if \"c\"",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 3,
+        "output": "\n    return (\n        \"b\"\n\n    # Test Test that\n    if not is_b:\n        if not is_b.is_b_b(a, b):\n            is_b_b_b = bb_b(a)\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n\n    def __init__(self, config: str, b), None):\n        super().__init__()\n        self.init_init = config.init()\n\n        self.init__()\n    ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 0,
+        "output": "\n    return b\n\n\ndef test_s():\n    # GH#701\n    \"b\": b,\n    b_b\": b\"],\n    b_b\": b,\n    b\": b,\n    b= b,\n    b=b,",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n\n    def __init__(self, *optional*, defaults to 1):\n        super().__init__()\n        self.config = config\n        self.config = config\n    ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n\n    from sklearn.utils import (\n        ...utils,\n        make_utils,\n        make_sample_size,\n        make_sample_size,\n        make_sampl",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    )\n\n    if not return_dict:\n        return\n    return_dict = return_dict.dict(\n            return_dict, return_dict, return_dict, return_d",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'return_dict,'"
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 4,
+        "output": "  # GH#11\n    b = b.f\"{b}\n    b = b.b.f\"{b}  b}\n    b = bf1.f\"0: b\"f\"b\"i: b\"  b1_r\"b",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    if self. max_value == max_value:\n        \"\"\"\n        if max_value == max_value:\n            max_value = max_value\n        # - max_value:0",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n    X = np.array([0, 2, 3, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4",
+        "collapsed": true,
+        "collapse_pattern": "repeated '4,'"
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n    The b    n_value = n_value.is_value(a, b)\n\n    return n_value\n\n\ndef _is_value_value_value(a):\n    \"\"\"\n    This is abre-value of the",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    This is the X with a bic of the time of the output of the\n    This is a b\n    This is the b-d and is of the b-like of the b-b-like of\n   ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    if is_value(a=a) == \"a\":\n        if is_value:\n            \"\"\"\n        return is_value(a)\n\n\ndef is_value(a, b, b):\n    if is_value:\n      ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    This is the model if the Current or not the Current Channel to the\n    CurrentA, C, CurrentA, Clean\n    Clvp_ Clvp, Clvp_BlvpClvp, Clvp, ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 1,
+        "output": "\n    # GH#2100\n    #0\n    # Check that will be a bi\n    # Check that the b, bi, b, b_i, bi_i, bi.ii\n    bii_i = bii",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 2,
+        "output": "\n    return a\n\n\ndef _A_b(s, b, b, b, b_b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'b,'"
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n\n    def __init__(self, config):\n        super().__init__()\n        self.config = config\n        self.config = config\n\n        self.config = ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    This is a a Series with the raise a a 2.\n\n    This is the same b, thesize of the\n    CPadd:\n\n    - F.e.g.g.g.g, or F.g.g.",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n\n    \"\"\"\n    return a, b\n\n\ndef _get_index_n(\n    self,\n) -> None:\n    \"\"\"\n\n    def _get_index_index_to_index(self, return_index):\n        \"\"\"",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n    Scope from transformers import Image, Image\n    import Image as Image\n    from transformers.models.models.modeling_models.modeling_models",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 2,
+        "output": "\n    return a\n\n\n@pytest.mark.parametrize(\n    \"dtype,\n    (\n        (\n            (\n                \"b\",\n                [\n                    \"b\",\n  ",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"b\",'"
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    This is a ba.\n\n    This is the same string from the ba b_bba.\n    \"\"\"\n    if not isinstance(a, Series):\n        return not self._a(a,b, b",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 4,
+        "output": "\n    return self._get_data(\n        {\n            \"get_data_data_data\": \"get_data_data_data_data\": \"get_data_data_data_data_data\": \"get_data_data_data",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "class": [
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n\n    def __init__(self, config: torch.Tensor, config: torch.Tensor, config.class_idx: torch.Tensor,\n        config.size: Optional[torch.Tenso",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 1,
+        "output": "\n    def __init__(self, config: str, config: str | None = None) -> str:\n        config: str | None = None\n        config: str = None\n        config: s",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 2,
+        "output": "\n    def __init__(self, config):\n        super().__init__()\n        self.init()\n        self.init = config\n\n        self.init = config.init()\n        ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 3,
+        "output": "\n    def __init__(self, config: C, C, C: C, C: C: C, C: C: C = C\n        C_ C, C, C, C, C, C\n        C, C = C\n        C = C\n       ",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'C,'"
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 4,
+        "output": "\n    def __init__(self, config: str):\n        self.count = config\n        self.count = config.count\n        self.count = config.count\n        self.cou",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 0,
+        "output": "\n    def __init__(self, config: str = \"init\"\n        self.count = config\n        self.count = config.count_count\n\n        self.count = config.count\n  ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 1,
+        "output": "\n    def __init__(self, config: int, config: int, config: int = None, config: int) -> int:\n        config: int = config.count_ int\n        config.coun",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 2,
+        "output": "\n    def __init__(self, config: str):\n        super().__init__()\n        self.init = config\n        self.init = config\n        self.init_init = config",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 3,
+        "output": "\n    def __init__(self, config: tuple[str, int, int, int, int, int, int, int, int, int, int, int]:\n        \"\"\"\n        This is a list of shape (batch,",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'int,'"
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 4,
+        "output": "\n    def __init__(self, config: str) -> str:\n        super().__init__()\n        self.init = config\n        self.init_init_init = config.init_init_init",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 0,
+        "output": "\n    def __init__(self, config):\n        super().__init__()\n        self.count = config\n        self.count = config.count\n        self.count = config.",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 1,
+        "output": "\n    def __init__(self, config: str | None):\n        super().__init__()\n        self.init()\n        self.init()\n\n    def forward(self, input_ids: Opti",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 2,
+        "output": "\n    def __init__(self, config: str) -> str:\n        super().__init__()\n        self.config = config\n        self.config = config\n        self.config ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 3,
+        "output": "\n    def __init__(self, config: str):\n        super().__init__(self)\n\n    def __init__(self, config: str = \"init__(self, config: str) -> str:\n        ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n\n    def __init__(self, config: str):\n        super().__init__()\n        self.config = config\n        self.config = config\n        self.confi",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "algorithm": [
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 0,
+        "output": "\n    if right == \"i\":\n        right = right.values.max(arr, right)\n\n    if right_search is not None:\n        right = right.max_search(arr, right_searc",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 1,
+        "output": "\n    return arr\n\n\ndef __search_class_ attention_mask(arr, exp_size, exp_size):\n    # GH#76\n    # GH#6,\n\n    # GH#103\n    # GH#013\n    #",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 2,
+        "output": "\n    # GH#153\n    # GH# GH#2416\n    # GH#724\n    right = right\n    right = right.from_search(arr, right)\n    right = right\n    right = right.from_sear",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 3,
+        "output": "\n    if right is None:\n        right = right_search(arr, right, right, right_search)\n\n    right = right.data\n    right = right_search(arr, right, righ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 4,
+        "output": "\n    # GH#500\n    # GH#4e-4\n    right = arr.dtype(arr)\n    if right_search is not None:\n        right = arr.dtype(arr)\n\n        right = right.dtype(ar",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 0,
+        "output": "\n    # GH#17\n    # GH#98\n    # if right is a result\n    if right == \"1\" and right == \"1\" and right == \"1\"\n    else:\n        right = right(arr)\n    if ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 1,
+        "output": "\n    # GH#4128\n    assert right.values == right\n    assert right.values == right\n\n    # GH#\n#1\ndef test_with_value():\n    # GH#5243\n    right = right.",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 2,
+        "output": "\n    return right\n\n\ndef _ in the \"or_sort\",\n    _or_sort_sort_sort_sort_sort\",\n    _or_sort_sort_sort_sort_sort_sort_sort_sort\",\n    _or_sort_sort",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 3,
+        "output": "\n    # GH#7\n    if not isinstance(arr, str):\n        right = arr.copy()\n        right = right.copy()\n        right = right.copy()\n        right = righ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 4,
+        "output": "\n    if isinstance(arr, str):\n        return right\n\n    if right is not None:\n        right = right.replace(\"1/1\", \"1.0.0\", \"1.0\", \"1.0\", \"0\", \"1.0\")\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 0,
+        "output": "\n    return right\n\n\ndef _name_str():\n    \"\"\"\n    [\n        \"name\",\n        \"name\",\n        \"name\",\n        \"name\",\n        \"name\",\n        \"name\",\n   ",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"name\",'"
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 1,
+        "output": "\n    return right\n\n\ndef _join_search(arr, right_list):\n    \"\"\"\n    )\n\n    # GH#367\n    # GH#07\n    # GH#710\n    # GH#107\n    right = arr.",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 2,
+        "output": "\n    # GH#4\n    # GH#2, 4\n    assert right == right\n    # Test that the right is not\n    # we need to the right\n    right = right[1]\n    right = right",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 3,
+        "output": "\n    # Check that the right if not is not a copy of a\n    # (1 or -1)-1\n    #  -1, -1, -1, -1, -1)\n    # -1: -1: -0\n    if 0",
+        "collapsed": true,
+        "collapse_pattern": "repeated '-1,'"
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 4,
+        "output": "\n    # GH#347\n    # GH#307\n    right = right.get_list(\"1/1/4-9\")\n    right = right\n    right = right.get(\"1\", right=1)\n\n    right = right.get(\"",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ]
+  },
+  "summary": {
+    "total_samples": 55,
+    "collapsed_samples": 8,
+    "collapse_rate": 0.14545454545454545
+  }
+}

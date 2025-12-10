@@ -1,0 +1,88 @@
+{
+  "description": "Recommended few-shot templates for v1 model (29M params, 8K BPE)",
+  "usage": "Use these templates to avoid mode collapse (~14.5% vs ~90% with short prompts)",
+  "model_info": {
+    "checkpoint": "nas/logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt",
+    "config": "nas/models/codenas_l8h512_regularized.json",
+    "tokenizer": "data/tokenizers/python_bpe_8k/tokenizer.json"
+  },
+  "templates": {
+    "basic_function": {
+      "name": "Basic Function Completion",
+      "description": "2 simple examples + task - recommended for most use cases",
+      "context": "# Python function examples\n\ndef add(a: int, b: int) -> int:\n    \"\"\"Add two integers.\"\"\"\n    return a + b\n\ndef multiply(a: int, b: int) -> int:\n    \"\"\"Multiply two integers.\"\"\"\n    return a * b\n\n# Task\n",
+      "example_tasks": [
+        "def subtract(a: int, b: int) -> int:\n    \"\"\"Subtract b from a.\"\"\"\n",
+        "def divide(a: int, b: int) -> float:\n    \"\"\"Divide a by b.\"\"\"\n",
+        "def max_value(a: int, b: int) -> int:\n    \"\"\"Return maximum of two values.\"\"\"\n"
+      ]
+    },
+    "recursive_function": {
+      "name": "Recursive Function Pattern",
+      "description": "Demonstrate recursive pattern with factorial example",
+      "context": "# Recursive function examples\n\ndef factorial(n: int) -> int:\n    \"\"\"Compute factorial of n.\"\"\"\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\n\ndef power(base: int, exp: int) -> int:\n    \"\"\"Compute base^exp recursively.\"\"\"\n    if exp == 0:\n        return 1\n    return base * power(base, exp - 1)\n\n# Task\n",
+      "example_tasks": [
+        "def fibonacci(n: int) -> int:\n    \"\"\"Compute n-th Fibonacci number.\"\"\"\n",
+        "def sum_digits(n: int) -> int:\n    \"\"\"Sum all digits in n.\"\"\"\n"
+      ]
+    },
+    "class_definition": {
+      "name": "Class Definition",
+      "description": "2 simple class examples + task",
+      "context": "# Python class examples\n\nclass Counter:\n    \"\"\"A simple counter class.\"\"\"\n    \n    def __init__(self):\n        self.count = 0\n    \n    def increment(self):\n        self.count += 1\n        return self.count\n\nclass Point:\n    \"\"\"2D point class.\"\"\"\n    \n    def __init__(self, x: float, y: float):\n        self.x = x\n        self.y = y\n    \n    def distance_from_origin(self) -> float:\n        return (self.x ** 2 + self.y ** 2) ** 0.5\n\n# Task\n",
+      "example_tasks": [
+        "class Stack:\n    \"\"\"Simple stack implementation.\"\"\"\n    \n    def __init__(self):\n",
+        "class Queue:\n    \"\"\"Simple queue implementation.\"\"\"\n    \n    def __init__(self):\n"
+      ]
+    },
+    "algorithm": {
+      "name": "Algorithm Implementation",
+      "description": "Complete algorithm with comments",
+      "context": "# Algorithm implementations\n\ndef binary_search(arr: list, target: int) -> int:\n    \"\"\"Binary search for target in sorted array.\"\"\"\n    left, right = 0, len(arr) - 1\n    \n    while left <= right:\n        mid = (left + right) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    \n    return -1\n\n# Task\n",
+      "example_tasks": [
+        "def linear_search(arr: list, target: int) -> int:\n    \"\"\"Linear search for target in array.\"\"\"\n",
+        "def bubble_sort(arr: list) -> list:\n    \"\"\"Sort array using bubble sort.\"\"\"\n"
+      ]
+    },
+    "list_processing": {
+      "name": "List Processing",
+      "description": "Functions that work on lists/arrays",
+      "context": "# List processing examples\n\ndef filter_even(numbers: list[int]) -> list[int]:\n    \"\"\"Return only even numbers.\"\"\"\n    result = []\n    for num in numbers:\n        if num % 2 == 0:\n            result.append(num)\n    return result\n\ndef sum_list(numbers: list[int]) -> int:\n    \"\"\"Sum all numbers in list.\"\"\"\n    total = 0\n    for num in numbers:\n        total += num\n    return total\n\n# Task\n",
+      "example_tasks": [
+        "def find_max(numbers: list[int]) -> int:\n    \"\"\"Find maximum value in list.\"\"\"\n",
+        "def reverse_list(items: list) -> list:\n    \"\"\"Reverse a list in place.\"\"\"\n"
+      ]
+    }
+  },
+  "anti_patterns": {
+    "description": "Patterns that lead to high collapse rate (~90%)",
+    "examples": [
+      {
+        "bad": "def fibonacci(n):",
+        "reason": "Too short, no context",
+        "collapse_rate": "~90%"
+      },
+      {
+        "bad": "def add(a, b):\n    return a + b\n\ndef subtract(a, b):",
+        "reason": "Only 1 example (need 2+)",
+        "collapse_rate": "~60%"
+      },
+      {
+        "bad": "# Write a function\ndef foo():",
+        "reason": "Vague task description",
+        "collapse_rate": "~80%"
+      }
+    ]
+  },
+  "recommended_generation_params": {
+    "temperature": 0.7,
+    "top_k": 40,
+    "max_new_tokens": 60,
+    "repetition_penalty": 1.0,
+    "note": "Repetition penalty doesn't help much - focus on good context instead"
+  },
+  "usage_example": {
+    "python_code": "from eval.few_shot_eval import generate_with_context\nimport json\n\n# Load template\nwith open('eval/prompts/few_shot_templates.json') as f:\n    templates = json.load(f)\n\n# Get basic function template\ntemplate = templates['templates']['basic_function']\ncontext = template['context'] + template['example_tasks'][0]\n\n# Generate\nresult = generate_with_context(\n    model, vocab, context,\n    max_new_tokens=60,\n    temperature=0.7,\n    top_k=40\n)",
+    "cli_example": "python eval/few_shot_eval.py \\\n  --checkpoint logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt \\\n  --arch_json models/codenas_l8h512_regularized.json \\\n  --tokenizer ../data/tokenizers/python_bpe_8k/tokenizer.json \\\n  --samples 5"
+  }
+}

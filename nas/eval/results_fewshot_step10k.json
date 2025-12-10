@@ -1,0 +1,172 @@
+{
+  "checkpoint": "logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt",
+  "step": 9500,
+  "val_loss": 1.2690333800405549,
+  "categories": {
+    "function": [
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 0,
+        "output": "\n    return \"S-S_b\"\n    )\n\n\ndef test_s(self):\n    # Faaa = test_self.self.model(self):\n        #  #  s = s[self.model[0], \"0\",",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 1,
+        "output": "\n    # GH#\n\n    >>> GH#(3):\n    >>> # T = T\n\n        >>> s = s\n        >>> s = s. s = s. s = s. s = s\n\n        s = s. s. s = s\n\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 0,
+        "output": "\n    # GH# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, OR CONDITIONS OF ANY KIND,\n    OR CONDITIONS OF ANY KIND,from OR CONDITIONS OF ANY KIND,\n    ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 1,
+        "output": "\n    # GH#\n\n    return b.load(self.config)\n\nif is_config_load(self, None,\n    return b = b\n    for i in as in the b.\n    b = b\n\n    def test_dir(",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    return_value(\"a\", \"3(a\"],\n    return \"a\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0",
+        "collapsed": true,
+        "collapse_pattern": "repeated '0,'"
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n    # GH#\n    \"\"\"\n\n\n    if max_value_value:\n    if max_value:\n        max_value_value = max_value_value_value_value_value,\n        max_value_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 0,
+        "output": "\n    import (n_samples,\n    return_dict,\n    return=self.from_pretrained(self, **n_samples)\n        return_from_pretrained(self.test_pretrained, \"test",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 1,
+        "output": "\n    # from a X\n    X_n_samples = X.n_samples\n    X = X( X, X= X, X)\n        X = X_ X\n\n        X = X.predict( X, X)\n\n        X = X,",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 0,
+        "output": "\n    return _get_data_device\n\n\n@pytest.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.mark.m",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 1,
+        "output": "\n    return is_from_pretrained(\n    return {\n    \"auto_config\": \"n_dim, \"auto_model\", \"model\": \"auto_model\": \"model\", \"model\", \"model\", \"model\": \"mode",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"model\",'"
+      }
+    ],
+    "class": [
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 0,
+        "output": "\n        \"\"\"\n\n        # GH# from the License for\n        # GH#,\n        # GH#,  # F\n        s = s = s.0\n        s = s.0\n        s = s\n\n        s. s = ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 1,
+        "output": "\n            \"\"\"\n            \"\"\"\n\n        # GH#\n\n        def get_count_count(self):\n            return (self):\n            # GH 0\n            # GH#-3\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 0,
+        "output": "\n            return self._count = self.feature_count(self._max_count_count=0\n\n\nclass = self.max_count(max_count=count,\n    )\n\n\nclass = model.max_count",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 1,
+        "output": " S(self, \"b\": \"LL3\", \"b\": \"b\", \"b\": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,",
+        "collapsed": true,
+        "collapse_pattern": "repeated '0,'"
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 0,
+        "output": "\n            return self.decoder_decoder=self.decoder.decoder_decoder_decoder\n\n        # s = s = s.5\n        #\n        s.decoder = s, s = s\n        s ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 1,
+        "output": "\n            \"\"\"\n\n\nclass(class,):\n            \"\"\"\n\n        # RanS = self.weight\n\n        # F = config\n        \"M\"\n        self.layers = 1\n        self",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "algorithm": [
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 0,
+        "output": "\n    if arr[0, 3, 3: bool, True):\n        )\n        if not_freq.is_arr_columns_arr_index(arr_0)\n        # TODO:\n            if not_int[np.int[int] == ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 1,
+        "output": "\n    elif arr[1]\n    )\n\n    # GH#2\n    )\n\n    def test_to(self,_self,_1, 3) -> bool:\n        # F = arr.from_pretrained(arr)\n\n        # Test the",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 0,
+        "output": "\n            if arr[0[0] == 1[0] == \"0\" in \"b\"\n        )\n\n\n        if ==_dtype == arr[0].shape[0] == 0 + arr[0] == arr[0]  # GH#\n       ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 1,
+        "output": "\n    # GH#\n    # This is_axis\n    )\n\n    # F.\n    # FS.\n    # F = F = F.from_pretrained(expected_series)\n    assert_series_series_series_series_series",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 0,
+        "output": "\n            if not_frame == \"arr_axis\": \"arr[0] == \"arr\" not_arr, \"arr_arr\": \"arr\", \"arr\": \"arr_arr_arr_arr\": \"arr_arr\"\n\n        elif in == \"arr_arr",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 1,
+        "output": "\n    # GH#3, 3\n\n    #\n    for i in right in range(self, right_axis[0, 0, 0, 0))\n\n    # F\n    # no if not_arr\n        if not None:\n            right = ",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ]
+  },
+  "summary": {
+    "total_samples": 22,
+    "collapsed_samples": 3,
+    "collapse_rate": 0.13636363636363635
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "checkpoint": "logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt",
+  "step": 5500,
+  "val_loss": 1.2749357719969534,
+  "categories": {
+    "function": [
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 0,
+        "output": "\n    expected = expected.from_name(\n    expected_name, expected=data)\n    expected = expected_name(name=name)\n    expected = expected_name(name)\n    e",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 1,
+        "output": "\n    return self.a_a = self.get_a_a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"a\",'"
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 0,
+        "output": "\n    # GH A GH b b\", \"b\": [1, 3, 1, 3, \"b\", \"b\", \"b/b\", \"b\", \"b\",  # \"b in \"b\", \"b\", \"b\", \"b\", \"b\", \"b",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"b\",'"
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 1,
+        "output": "\n    return [a_a_a, [a, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3",
+        "collapsed": true,
+        "collapse_pattern": "repeated '3,'"
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    model = torch.Tensor(a):\n    model = model.model(\n    model: torch.Tensor[0], torch.Tensor] = model.model.Tensor(\n    model_model.model.m",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"        return self.as.get_get_get(\"get(\"get\", \"get_get\") == \"get(\"get\") == \"get(\"get\") == \"get(\"get\")\n    \"get\", \"get\")\n    )\n    \"get_get_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 0,
+        "output": "\n    return self.assertEqual(a\", None)\n    return self._get_get_get_get(\"get.get\")\n    if return self.get_get_get_get_get_get_get_get_get(\"get\")\n    x",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 1,
+        "output": "\n    # we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we we",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'we'"
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 0,
+        "output": " is not use this except in an is not None\nclass = None\n@pytest.mark.parametrize(\"pytest.mark\")\n    model = model.get_class = model.get(\"model.get(\"get",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 1,
+        "output": "\n    return self.mark.mark.parametrize(\"torch.mark\")\n    return self self._parametrize(\"mark-mark-parametrize(\"mark-mark-parametrize(\"mark-mark-parame",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "class": [
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 0,
+        "output": "\n            self.max_size = self.max_size\n        self.max_size = self.max_size\n\n        # self.max_size = self.max_size\n        self.max_size = self",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 1,
+        "output": "\n        return self.is_size\n    return self.is_size = self.is_size.is_size\n\n    return self.is_size\n    return self.is_size\n    if self.is_size is No",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 0,
+        "output": "\n        self._pytest.mark.parametrize(\"pytest.parametrize(\"pytest.mark.parametrize(\"pytest.mark-mark-parametrize(\"mark\")\ndef test_parametrize(\"mark\")",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 1,
+        "output": "\n        return self.get_get_get_ids is None\n\n\nclass _get_input_ids.get_input_ids(get_ids_type_ids=input_ids)\ndef test_ids_input_ids = None\n\n    def t",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 0,
+        "output": "\n        return self.as = self._count\n        return self.text_text_text_text(text, self.text_text_text=text)\n    return self.text_text_text = self.te",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 1,
+        "output": "\n            return self.get_class\n\n\n\nclassclassclass return self.get_class(self,_class)\n\nclass_class = self.get_class(\"args\", self._get_class_class)\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "algorithm": [
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 0,
+        "output": "\n    return self.get_model_model_model = self.get_model_model.get_model.get_model.model.get_model_model.get_model.get_model.get_model_model_model_mode",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 1,
+        "output": "\n        if return self.no_index_ 1001, -1e-0.0, 1, 1], [0, 1, 1, 1, 1, 1, -1, 1, 1, - 1, 1, -1e1, 1, -1e-",
+        "collapsed": true,
+        "collapse_pattern": "repeated '1,'"
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 0,
+        "output": "\n            for a (x)\n            if isinstance(1, - (0, 2, - 1, 3, 3, - [0, -1, -0, -1, -0, -1)\n\n            if not None\n            return isinstan",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 1,
+        "output": "\n            return self.get_name in self.get_name.get_name(name)\n\n    # GH\n    return True\n    # GH\n    # GH # GH\n    # GH # GH#        # GH # GH\n   ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 0,
+        "output": "\n            if self.tokenizer == is None\n\n    def test_to_series_series_equal(self):\n        if is not None else:\n            if\n            df.dtype",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 1,
+        "output": "\n\n    if return expected_equal(self.no_kwargs):\n            return expected_ (self.model_size\n    return expected_output = expected_output_output, exp",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ]
+  },
+  "summary": {
+    "total_samples": 22,
+    "collapsed_samples": 5,
+    "collapse_rate": 0.22727272727272727
+  }
+}

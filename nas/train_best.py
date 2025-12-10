@@ -21,7 +21,10 @@ import math
 
 from search_space import ArchitectureConfig
 from models import build_model
-from datasets import CodeCharDatasetConfig, build_code_char_loaders
+from datasets import (
+    CodeCharDatasetConfig, build_code_char_loaders,
+    CodeTokenDatasetConfig, build_code_token_loaders
+)
 
 
 class TrainingLogger:
@@ -73,7 +76,9 @@ def train_best_architecture(
     log_interval: int = 100,
     eval_interval: int = 500,
     save_interval: int = 2000,
-    log_dir: str = "logs/train_best"
+    log_dir: str = "logs/train_best",
+    weight_decay: float = 0.01,
+    label_smoothing: float = 0.0
 ) -> Dict:
     """
     Full training of best architecture
@@ -100,9 +105,14 @@ def train_best_architecture(
     print(f"Max steps: {max_steps}")
     print(f"Learning rate: {lr} -> {min_lr}")
     print(f"Warmup: {warmup_steps} steps")
+    print(f"Weight decay: {weight_decay}")
+    print(f"Label smoothing: {label_smoothing}")
 
-    # Build data loaders
-    train_loader, val_loader, vocab = build_code_char_loaders(data_cfg)
+    # Build data loaders (auto-detect char vs token level)
+    if isinstance(data_cfg, CodeTokenDatasetConfig):
+        train_loader, val_loader, vocab = build_code_token_loaders(data_cfg)
+    else:
+        train_loader, val_loader, vocab = build_code_char_loaders(data_cfg)
 
     # Update vocab size
     arch_cfg.vocab_size = vocab.vocab_size
@@ -125,7 +135,7 @@ def train_best_architecture(
     optimizer = AdamW(
         model.parameters(),
         lr=lr,
-        weight_decay=0.01,
+        weight_decay=weight_decay,
         betas=(0.9, 0.95)
     )
 
@@ -134,12 +144,13 @@ def train_best_architecture(
         if step < warmup_steps:
             return step / warmup_steps
         else:
-            progress = (step - warmup_steps) / (max_steps - warmup_steps)
+            progress = (step - warmup_steps) / max(1, max_steps - warmup_steps)
             return min_lr/lr + (1 - min_lr/lr) * 0.5 * (1 + math.cos(math.pi * progress))
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-    loss_fn = nn.CrossEntropyLoss()
+    # Loss function with optional label smoothing
+    loss_fn = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     # Training state
     step = 0
@@ -353,19 +364,44 @@ if __name__ == "__main__":
     parser.add_argument("--warmup_steps", type=int, default=500)
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--log_dir", type=str, default="logs/train_best")
+    parser.add_argument("--weight_decay", type=float, default=0.01,
+                       help="Weight decay for AdamW optimizer (default: 0.01)")
+    parser.add_argument("--label_smoothing", type=float, default=0.0,
+                       help="Label smoothing factor (default: 0.0, try 0.1 for regularization)")
+    parser.add_argument("--use_tokens", action="store_true",
+                       help="Use token-level (BPE) instead of char-level")
+    parser.add_argument("--tokenizer", type=str, default="gpt2",
+                       help="Tokenizer to use for token-level modeling (default: gpt2)")
+    parser.add_argument("--tokenizer_path", type=str, default=None,
+                       help="Path to custom tokenizer.json file (overrides --tokenizer)")
     args = parser.parse_args()
 
     # Load best architecture
     print(f"Loading architecture from: {args.arch_json}")
     arch_cfg = load_best_architecture(args.arch_json)
 
-    # Data config
-    data_cfg = CodeCharDatasetConfig(
-        train_path=args.train_path,
-        val_path=args.val_path,
-        seq_len=args.seq_len,
-        batch_size=args.batch_size
-    )
+    # Data config (char-level or token-level)
+    if args.use_tokens:
+        if args.tokenizer_path:
+            print(f"\n[MODE] Using TOKEN-LEVEL modeling with custom tokenizer: {args.tokenizer_path}")
+        else:
+            print(f"\n[MODE] Using TOKEN-LEVEL modeling with {args.tokenizer} tokenizer")
+        data_cfg = CodeTokenDatasetConfig(
+            train_path=args.train_path,
+            val_path=args.val_path,
+            seq_len=args.seq_len,
+            batch_size=args.batch_size,
+            tokenizer_name=args.tokenizer,
+            tokenizer_path=args.tokenizer_path
+        )
+    else:
+        print(f"\n[MODE] Using CHARACTER-LEVEL modeling")
+        data_cfg = CodeCharDatasetConfig(
+            train_path=args.train_path,
+            val_path=args.val_path,
+            seq_len=args.seq_len,
+            batch_size=args.batch_size
+        )
 
     # Train
     final_metrics = train_best_architecture(
@@ -376,7 +412,9 @@ if __name__ == "__main__":
         max_steps=args.max_steps,
         lr=args.lr,
         warmup_steps=args.warmup_steps,
-        log_dir=args.log_dir
+        log_dir=args.log_dir,
+        weight_decay=args.weight_decay,
+        label_smoothing=args.label_smoothing
     )
 
     print("\n" + "="*70)

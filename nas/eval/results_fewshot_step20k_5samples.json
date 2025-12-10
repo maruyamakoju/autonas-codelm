@@ -1,0 +1,403 @@
+{
+  "checkpoint": "logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt",
+  "step": 19500,
+  "val_loss": 1.2617148704111119,
+  "categories": {
+    "function": [
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    if not is not None:\n        return self.config_config_and_class_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n    return self.b.b(a,b)\n\n    def test_a_a_a_a_a():\n        # GH#4, 51\n        # GH#447327,#49327,#4",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 2,
+        "output": "\n    # GH#0\n    -a = (a,  # GH#5144\n    # GH#47\n    # GH#555\n    # GH#5#5#594\n    # GH#5#8#5#5",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    return f.b.is_is_is_b_to_is_is_is_is_encoder_is_is_is_is_is_is_is_is_is_is_is_is_is_is_is_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def subtract(a, b):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    def __init__(self, config: int):\n        super().__init__(self, config)\n\n    def __init__(self, config: int):\n        super().__init__()\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    elif (a, 0] == 0\n\n    if (a) is not None) > 0 == 0\n)\nclass 2\n    if (\n        f: \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"a\",'"
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 1,
+        "output": "\n    \"\"\"\n    return bagg.from_pretrained_pretrained(\n        self,\n    )\n    for k, k in k.freq, k():\n        k_idx = k_idx\n\n    def __idx_idx_idx_idx",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n    return bdict_b = (a, ha)\n\n    def test_b_b_a_b_b_b_b_b_b_b_b = (\n        {\n            \"a\": {\"a\": \"a\":",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 3,
+        "output": "\n   :\n    \"\"\" = p.y_c, p = p.y_y(y)\n\n    p = p_y_y = p.y_y_y\n    p = p.y_y_y\n    p_y = p_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def divide(a, b):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    # We as an string\n    with pytest.raises_, match=msg):\n        # TODO: and s = pd.Series._check_msg(\n            {\n                [\n    ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 0,
+        "output": "\n    # GH#514\n    \"\"\"\n    # GH#6#5#14\n    # GH#45\n    # GH#4\n    # GH#4\n    # GH#41413\n    # GH#140# GH#4\n   ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 1,
+        "output": "\n    return x_value_value\n\n\ndef test_value_value_value_value_value(self, module) -> None:\n    \"\"\"\n    if isinstance(self,config, \"value_value_value_va",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n    \"\"\"\n    X = np.array(\n        X,\n        X,\n        X,\n        X,\n        X,\n        X_ X,\n        X_ X,\n        X,\n        X,\n        X,",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'X,'"
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    )\n\n    def __init__(self, config: int, config: int): int: int) -> None: int: int: bool: int: int: int: int: int: int: int: int: int: int:",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'int:'"
+      },
+      {
+        "prompt": "def max_value(a, b):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    \"\"\"\n    \"\"\"\n    \"\"\"\n    X_value = X\n    X = y_value = np.ndarray\n    X = np.ndarray\n    X = np.ndarray\n    X = np.ndarray\n    X = X.ndarr",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"\"\"'"
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 0,
+        "output": "\n    \"\"\"\n    )\n    return (\n        \"a\": 0,\n        \"a\": 0,\n        \"a\": [0.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,",
+        "collapsed": true,
+        "collapse_pattern": "repeated '0,'"
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 1,
+        "output": "\n    # y of the model as b_\n    def __init__(self, config: int, config: int, \" -> None: int,\n        config: int,\n        config: int,\n        config:",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n    if not is not None:\n        \"\"\"\n        of the input of the number of the same is a number of the input output to `x`.\n\n    def __ : np: ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 3,
+        "output": "\n    # We we we a bay of the ba, bit\n    the bodi = (\n        \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"a\",'"
+      },
+      {
+        "prompt": "def factorial(n):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    return (\n        \"a\": \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\", \"a\",",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"a\",'"
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 0,
+        "output": "\n    is not None):\n    \"\"\"\n    if is_iter is not None:\n        is_iter = (\n            f_iter_iter_iter, is_iter_iter: list[iter] = None,\n            ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 1,
+        "output": "\n    is_torch_device_mask_device_type_mask_and_values\n    is_torch_device_type_type_type = (\n        \"type_type_type_type_type_type\": \"type_type_type_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 2,
+        "output": "\n    is_torch_available():\n        is_available_available = (\n            \"from_available_available_available():\n                is_available = (\n    ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\" (\n        f_a_b_e_a_a, \"a\",\n        f_a_a\",\n        fa_a_a_a\",\n        f_a_a\",\n        fa_a_a\",\n        f",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def is_even(n):",
+        "sample_idx": 4,
+        "output": "\n    \"\"\"\n    is not None:\n    \"\"\"\n    with Da.\n    \"\"\"\n    def __            is_available():\n        super().__init__()\n        self._available = (\n  ",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "class": [
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 0,
+        "output": "\n    def __init__(self, config:\n        self_head = config\n        self.num_head_head = config_head_head(config)\n        self.head_head_head = config.",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 1,
+        "output": "\n    def __init__(self, config: np.ndarray):\n        super().__init__(self, config, config, config, config):\n            config.num_channels (`torch.T",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'config,'"
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 2,
+        "output": "\n    def _no_count_count_count_count_count_count(self, config, name:\n        self.count = (\n            self.count_count = nn.count.count_count_count\n",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 3,
+        "output": "\n    def __init__(self, config: dict) -> None:\n        \"\"\"\n        # Test are a `self.num_attention_heads` is not to be used to use a single un (self.",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Timer:",
+        "sample_idx": 4,
+        "output": "\n    def __add_count_count_count(self, config, index:\n        \"\"\"\n        input_count = self.add_count\n        input_count = self.add_count\n        in",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 0,
+        "output": "\n    def __init__(self, config: int, config, config: int: int): int) -> int: int: int = False\n        config: int = self.class_class_dict\n\n    def for",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 1,
+        "output": "\n    def __init__(self, config: [\n        self,\n        self,\n            config: Optional[torch.Tensor],\n            config: Optional[torch.FloatTens",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 2,
+        "output": "\n    def __call__(self, config:\n        self. = np.ndarray\n    def __init__(self, config: int) -> None:\n        super().__init__(self, config)\n       ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 3,
+        "output": "\n    def _get_count_count_count_count_count_count_count_count_count_count_count_count_count_count)\n    def test_count_count_count_count_count_count_co",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Stack:",
+        "sample_idx": 4,
+        "output": "\n    def _get_count_count_count_count_count(self_count, config, self, config)\n\n    def __count_count_count_count_count_count(\n        config,\n        ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 0,
+        "output": "\n    def __dict__(self):\n        self_count_count = (self_count_count, self, value):\n            self.count_count_count_count_count\n            self.c",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 1,
+        "output": "\n    def __init__(self, config: int):\n        super().__init__(self, config: int):\n            config_and_and_inputs = config_and_and_and_and_and_and_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 2,
+        "output": "\n    def __init__(self, config: int):\n        super().__init__()\n        self.d = config\n        self.config = config\n        self.config = config.con",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 3,
+        "output": "\n    def __init__(self, config: Optional, config: Optional[torch.FloatTensor] = None: Optional[torch.FloatTensor] = None\n        self.num_attention_ma",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "class Queue:",
+        "sample_idx": 4,
+        "output": "\n    def _get_count_count_count_count(self, text, expected_count):\n        self.count = self.get_count(self, self.count)\n        self.count = self.get",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ],
+    "algorithm": [
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 0,
+        "output": "\n    # GH#5141.4\n    if isinstance(values, str):\n        # GH#55\n        # GH#51147\n        # GH#47#5\n        # GH#45\n        # GH#45,#",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 1,
+        "output": "\n    # For we use a `arr` to `arr` is used for the same or `arr` is used to `arr` is\n    # We to the un (arr, sometimes to the function are used to a ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 2,
+        "output": "\n    if not is_search_search_search_search_search_search(arr)\n    # GH#4125\n    # GH#4, -45754, -4)\n    if isinstance(\n        \"A_search_search, \"",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    return np.ndarray\n    return np.ndarray(\n        self.ndarray,\n        np.ndarray)\n    def test_no_series_and_and_inputs_and_and_and_and_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def linear_search(arr, target):",
+        "sample_idx": 4,
+        "output": "\n    # GH#688#8\n    result = np.arange(0, np.arange(0, np.arange(0), np.arange(0, np.arange(0, np.arange(0), np.arange(2, np.arange(",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 0,
+        "output": "\n    # GH#545, 55\n    -1.5\n    if  # GH#5 is not not use in the License is not None:\n        # GH#57,  # GH#4#95,#4\n        # GH#",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 1,
+        "output": "\n    # GH#4\"2\n    if isinstance(arr, np.nan)\n    if 1 is not None:\n        return np.ndarray\n\n    def test_test_test_test_test_test_test_test_test_tes",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 2,
+        "output": "\n    \"\"\"\n    if is_arr is not None:\n        is_arr_string_string = np.ndarray(arr, dtype)\n        return (\n            self.is_string(arr)\n\n          ",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 3,
+        "output": "\n    \"\"\"\n    def test_test_sort_sort_sort_index_sort_sort_sort_sort_sort_sort_sort_sort_sort_sort_sort_sort_sort_sort_sort)\n\n    def test_sort_sort_so",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def bubble_sort(arr):",
+        "sample_idx": 4,
+        "output": "\n    # GH#32\n    if not is_and_data_with_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 0,
+        "output": "\n    def __get_result__(self):\n        return (\n            self,\n                self,\n                (\n                (\n                \"C\": (\n   ",
+        "collapsed": true,
+        "collapse_pattern": "repeated '\"a\",'"
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 1,
+        "output": "\n    def test_and_and_get_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and_and",
+        "collapsed": false,
+        "collapse_pattern": null
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 2,
+        "output": "\n    # We to all s.\n    # We use a b.\n    return  # GH#41\n    # GH#50\n    # GH#2\n    s = pd.Index([0, 3, 0.0, 0, 0, 0,",
+        "collapsed": true,
+        "collapse_pattern": "repeated '0,'"
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 3,
+        "output": "\n    return q(size, np.ndarray)\n    return (\n        1,\n            (\n                np.ndarray,\n                np.ndarray,\n                np.ndarr",
+        "collapsed": true,
+        "collapse_pattern": "repeated 'np.ndarray,'"
+      },
+      {
+        "prompt": "def reverse_list(arr):",
+        "sample_idx": 4,
+        "output": "\n    def test_with_with_with_with_get_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_with_wi",
+        "collapsed": false,
+        "collapse_pattern": null
+      }
+    ]
+  },
+  "summary": {
+    "total_samples": 55,
+    "collapsed_samples": 11,
+    "collapse_rate": 0.2
+  }
+}

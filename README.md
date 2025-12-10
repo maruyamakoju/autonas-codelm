@@ -522,22 +522,128 @@ git push origin v1.0-strongreg
 git remote -v
 ```
 
+---
+
+## ❌ Instruction Tuning / LoRA Results
+
+**Status**: Exhaustively tested and failed
+
+### Small-scale Instruction Tuning (v1+IT)
+- **Data**: 49 task-solution pairs
+- **Attempts**: v2 (3k steps) and v3 (6k steps)
+- **Result**: 0/20 benchmark, introduced mode collapse ("return return")
+- **Conclusion**: Too few samples, pre-training too dominant
+
+### Large-scale LoRA (v2)
+- **Data**: 500 HumanEval + MBPP samples
+- **Method**: LoRA (r=8, 196K trainable params, 0.67% of total)
+- **Training**: 20k steps, stable learning
+- **Loss metrics**: Train 0.42→0.15 (-64%), Val 0.44→0.22 (-50%) ✅
+- **Actual behavior**: Generates only newlines (`\n`) in infinite loop ❌
+- **Result**: Mode collapse despite loss improvements
+
+### Key Finding
+
+**Loss metrics are misleading** for instruction-tuned code models:
+- Training loss can decrease dramatically while generation quality degrades
+- Model optimizes for common structural tokens (newlines, spaces) rather than code logic
+- v1 base model (token-level LM) fundamentally incompatible with instruction-following
+
+### Conclusion
+
+**All "cheap levers" exhausted**:
+- ❌ Small data (49 samples): Failed
+- ❌ Large data (500 samples): Failed
+- ❌ Full fine-tuning: Failed
+- ❌ LoRA adaptation: Failed
+
+**v1 cannot be adapted for instruction-following** regardless of approach or scale. Next step requires:
+- Task-aware pre-training from scratch
+- Bigger model (50M-100M params)
+- Distillation from GPT-4/Claude
+
+**See**: `V2_LORA_RESULTS.md` and `INSTRUCTION_TUNING_FAILURE_REPORT.md` for complete analysis.
+
+---
+
+## 💡 Usage as Pure LM (Code Completion)
+
+**Important**: This model is **not** an instruction-following model. It works best as a **pure next-token language model** for code completion.
+
+### Recommended Usage Pattern
+
+✅ **Do**: Provide 1-2 example functions as few-shot context
+```python
+# Example 1
+def add(a, b):
+    """Add two numbers"""
+    return a + b
+
+# Example 2
+def multiply(a, b):
+    """Multiply two numbers"""
+    return a * b
+
+# Now generate: The model will continue with similar patterns
+def subtract(a, b):
+    """Subtract b from a"""
+```
+
+❌ **Don't**: Use short prompts or docstring-only prompts
+```python
+def factorial(n):
+    """Compute factorial"""
+# This will likely collapse to repetitive patterns
+```
+
+### Quick Start
+
+```bash
+cd nas
+python eval_playground.py \
+  --mode token \
+  --checkpoint logs/train_v1_8k_strongreg/v1_8k_strongreg_best.pt \
+  --tokenizer_path ../data/tokenizers/python_bpe_8k/tokenizer.json \
+  --arch_json models/codenas_l8h512_regularized.json
+```
+
+### Model Capabilities
+
+| Task | Performance | Notes |
+|------|-------------|-------|
+| **Few-shot completion** | ⭐⭐⭐ (14.5% collapse) | Works well with 1-2 examples |
+| **Syntax generation** | ⭐⭐⭐ | Valid Python structures |
+| **Short prompt completion** | ⭐ (~90% collapse) | High collapse rate |
+| **Task-specific logic** | ❌ (0/20) | Cannot solve algorithmic tasks |
+| **Instruction following** | ❌ | Not trained for this |
+
+### Best Use Cases
+
+1. **Code pattern continuation**: Given 1-2 similar functions, generate another
+2. **Syntax scaffolding**: Generate Python boilerplate (docstrings, type hints)
+3. **Research baseline**: Test mode collapse mitigation techniques
+
+### Not Suitable For
+
+- ❌ Task-specific problem solving (HumanEval, MBPP)
+- ❌ Zero-shot code generation
+- ❌ Instruction-following ("write a function that...")
+- ❌ Production code generation
+
+---
+
 ### Future Work
 
 If you want to continue this project:
 
-1. **Instruction Tuning (Recommended first step)**:
-   - Create 10-50 task-solution pairs
-   - Fine-tune v1 checkpoint for 1k-5k steps
-   - Test if 0/20 → 3-5/20 on mini benchmark
-   - See `NOTES_V1_DONE.md` for detailed recommendations
+1. ~~**Instruction Tuning**~~ (Already tried, failed - see above)
 
-2. **v2 Model (Larger effort)**:
-   - Create a new branch: `git checkout -b v2-instruction-tuning`
-   - Increase model capacity (50M+ params)
-   - Train with longer context (512+ tokens)
-   - Full instruction tuning dataset
+2. **Fundamental Redesign (Required)**:
+   - Task-aware pre-training (train with (signature→body) pairs from start)
+   - Bigger model (50M-100M params, longer context)
+   - Distillation from strong teacher (GPT-4/Claude)
 
 3. **Alternative Path**:
-   - Use v1 as a research baseline
-   - Start a new project with different architecture/approach
+   - Accept v1 as pure LM research artifact
+   - Start new project with different approach
+   - Use v1 as baseline for future comparisons

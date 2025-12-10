@@ -442,19 +442,29 @@ class TransformerLM(nn.Module):
 
     def forward(
         self,
-        input_ids: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None
+        input_ids: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        inputs_embeds: Optional[torch.Tensor] = None,
+        **kwargs
     ) -> torch.Tensor:
         """
         Args:
-            input_ids: (batch_size, seq_len)
-            attention_mask: (batch_size, seq_len) or None
+            input_ids: (batch_size, seq_len) - Token IDs
+            attention_mask: (batch_size, seq_len) or None - Attention mask
+            inputs_embeds: (batch_size, seq_len, hidden_dim) or None - Pre-computed embeddings
+            **kwargs: Additional arguments (for PEFT compatibility)
 
         Returns:
             logits: (batch_size, seq_len, vocab_size)
         """
-        # Embed tokens
-        x = self.token_embedding(input_ids)  # (B, L, H)
+        # Handle inputs_embeds (PEFT sometimes passes pre-computed embeddings)
+        if inputs_embeds is not None:
+            x = inputs_embeds
+        elif input_ids is not None:
+            # Embed tokens
+            x = self.token_embedding(input_ids)  # (B, L, H)
+        else:
+            raise ValueError("Either input_ids or inputs_embeds must be provided")
 
         # Add positional encoding (if absolute)
         if hasattr(self, 'pos_encoding'):
@@ -471,6 +481,26 @@ class TransformerLM(nn.Module):
         logits = self.lm_head(x)  # (B, L, V)
 
         return logits
+
+    def prepare_inputs_for_generation(
+        self,
+        input_ids: torch.Tensor,
+        **kwargs
+    ):
+        """
+        Prepare inputs for generation (required by PEFT for CAUSAL_LM).
+
+        This method is used by HuggingFace's generation utilities.
+        For LoRA compatibility, we provide a minimal implementation.
+
+        Args:
+            input_ids: (batch_size, seq_len)
+            **kwargs: Additional arguments (ignored)
+
+        Returns:
+            dict with model inputs
+        """
+        return {"input_ids": input_ids}
 
 
 # ===== Model Factory =====

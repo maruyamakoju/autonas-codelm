@@ -40,6 +40,9 @@ class ArchitectureConfig:
     quantization: str = "fp16"  # "fp16", "int8", "int4"
     pruning_ratio: float = 0.0  # 0.0 to 0.6
 
+    # HuggingFace compatibility (for PEFT)
+    model_type: str = "gpt2"  # Used by PEFT for model type detection
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
@@ -56,7 +59,8 @@ class ArchitectureConfig:
             "vocab_size": self.vocab_size,
             "max_seq_length": self.max_seq_length,
             "quantization": self.quantization,
-            "pruning_ratio": self.pruning_ratio
+            "pruning_ratio": self.pruning_ratio,
+            "model_type": self.model_type
         }
 
     @classmethod

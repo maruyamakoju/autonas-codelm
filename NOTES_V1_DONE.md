@@ -83,22 +83,59 @@ This project successfully demonstrated:
 
 ---
 
+## v2 LoRA Attempt (2025-12-10)
+
+**Scaled up to large-scale instruction tuning with LoRA** (500 samples, 20k steps):
+
+### Setup
+- **Data**: HumanEval (164) + MBPP (386) = 550 samples (500 train, 50 val)
+- **Method**: PEFT LoRA (rank=8, alpha=16, 0.67% trainable params)
+- **Training**: 20,000 steps, ~7 minutes, stable learning
+
+### Results
+- **Train loss**: 0.42 → 0.15 (64% reduction) ✅
+- **Val loss**: 0.44 → 0.22 (50% reduction) ✅
+- **Best val loss**: 0.2210 (step 18,000)
+
+### Actual Behavior
+- ❌ **Mode collapse**: Model generates only newlines (`\n` token ID 200) in infinite loop
+- ❌ **No code generation**: Completely degenerate behavior despite loss improvements
+- ❌ **Same failure pattern** as v1+IT, just manifesting differently
+
+### Root Cause
+**Loss metrics are misleading**: Model optimized for common structural tokens (newlines, spaces) rather than meaningful code generation. LoRA's limited capacity (0.67% params) only captures superficial formatting patterns.
+
+**Fundamental issue**: The v1 base model (trained for next-token LM) lacks the architectural foundation for instruction-following. Adapting it with LoRA is insufficient regardless of data scale (49 samples → 500 samples both failed).
+
+### Conclusion
+- **All "cheap levers" exhausted**: Small data (49), large data (500), full fine-tuning, LoRA adaptation all failed
+- **Loss ≠ Quality**: Training metrics do not correlate with actual task performance for instruction tuning
+- **Base model mismatch**: v1's token-level LM training is fundamentally incompatible with instruction-following
+
+**See**: `V2_LORA_RESULTS.md` for complete analysis, training curves, and debug output.
+
+---
+
 ---
 
 ## Summary: What This Project Achieved
 
 **v1 line (29M, 8K BPE)**: Solved mode collapse through regularization, completed as syntax generator research artifact.
 
-**Instruction tuning experiments**: Exhaustively tested small-scale approaches (v1+IT v2, v3) and confirmed failure. All "cheap levers" (hyperparameters, small data) have been attempted.
+**Instruction tuning experiments**:
+- v1+IT (small-scale, 49 samples): Completely failed (0/20 benchmark, mode collapse)
+- v2 LoRA (large-scale, 500 samples): Loss improved but generation collapsed (newline loop)
+- **Conclusion**: All "cheap levers" exhausted - v1 base cannot be adapted for instruction-following
 
-**v2 planning**: Designed 4 options for quality scaling. Recommended: LoRA + 500-1000 samples (see `V2_PLAN.md` and `DATA_EXPANSION_GUIDE.md`).
+**Key Finding**: Loss metrics are unreliable for evaluating instruction-tuned code models. Training loss can decrease significantly while actual generation quality degrades or stagnates.
 
-**Next action**:
-- If continuing: Follow v2 Option A (LoRA + HumanEval/MBPP data)
-- If pausing: Project is fully documented, backed up, and ready for archival
+**Next action if continuing**:
+- ❌ **Don't try**: More instruction tuning samples, different LoRA hyperparameters, longer training
+- ✅ **Do try**: Fundamental changes (task-aware pre-training, bigger model 50M-100M, or distillation)
+- ✅ **Recommended**: Accept v1 as pure LM and document its capabilities/limitations
 
 **GitHub Repository**: https://github.com/maruyamakoju/autonas-codelm
 
 ---
 
-**Final Status**: v1 complete and closed. Instruction tuning with small data confirmed unfeasible. Next step requires v2 approach or project archival.
+**Final Status**: v1 complete as pure LM. Instruction tuning exhaustively tested (small + large scale, full + LoRA) and confirmed infeasible for this base model. Project ready for archival or fundamental redesign.

@@ -5,7 +5,8 @@
 **Status**: ✅ Complete - Model trained and validated
 
 **Release**: v1.0-strongreg
-**Commit**: `e2f5156`
+**Model Commit**: `e2f5156` (trained model)
+**Benchmark Commit**: `20c7dc2` (mini benchmark + evaluation)
 **Date**: 2025-12-10
 
 ---

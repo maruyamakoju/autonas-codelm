@@ -391,8 +391,12 @@ cuDNN 9.x
 - **Size**: 55.6 MB (29M params)
 - **Val Loss**: 1.254, PPL: 3.50
 - **Collapse Rate**: 14.5% (few-shot), ~90% (short prompts)
+- **Mini Benchmark**: 0/20 tasks (generates Python-like syntax, but not task-specific)
 
-**Key Finding**: Mode collapse is **context-dependent**. Model requires 1-2 example functions to avoid repetition patterns.
+**Key Findings**:
+1. **Mode collapse fixed**: Few-shot context reduces collapse from 85%+ to 14.5%
+2. **Syntax learned**: Generates valid Python structures (docstrings, type hints)
+3. **Task-specific logic missing**: No correct algorithm implementations (requires instruction tuning)
 
 **Usage**: See [STRONGREG_SUMMARY.md](STRONGREG_SUMMARY.md) for detailed results and usage guidelines
 

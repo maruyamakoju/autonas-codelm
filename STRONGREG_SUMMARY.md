@@ -4,6 +4,10 @@
 
 **Status**: ✅ Complete - Model trained and validated
 
+**Release**: v1.0-strongreg
+**Commit**: `e2f5156`
+**Date**: 2025-12-10
+
 ---
 
 ## Executive Summary
@@ -343,6 +347,60 @@ prompt = "def fibonacci(n):"
 2. **Longer context**: Train with 512 or 1024 token sequences
 3. **Better sampling**: Implement nucleus sampling, repetition penalty in generation
 4. **Benchmark**: Run on HumanEval subset for quantitative quality metric
+
+---
+
+## Mini Benchmark Results
+
+**Dataset**: 20 simple Python tasks (add, factorial, fibonacci, is_prime, etc.)
+
+**Setup**:
+- Template: basic_function (2 examples)
+- Temperature: 0.8
+- Samples: 1 per task
+
+**Results**:
+```
+Total tasks: 20
+Passed: 0 (0.0%)
+Failed: 20 (100.0%)
+  - Mode collapse: 0
+  - Syntax/logic errors: 20
+```
+
+**Key Findings**:
+
+1. **No mode collapse detected** - Model generates valid-looking Python syntax
+2. **Zero task success** - Generated code does not solve the given tasks
+3. **Common errors**:
+   - Incomplete implementations (`if not inb: ...`)
+   - Generic patterns not matching task requirements
+   - Syntactic issues (unterminated strings, invalid indentation)
+
+**Analysis**:
+
+The v1 model successfully **avoids repetition patterns** (`:::::`, `):):):`) thanks to strong regularization and few-shot context. However, it does not produce **task-specific** implementations.
+
+**What the model generates**:
+- Python-like syntax (docstrings, type hints, if/return statements)
+- Generic patterns (`self.config`, `a_a_a`, test framework references)
+- No logical connection to task requirements
+
+**What it doesn't generate**:
+- Correct algorithms for the given task
+- Complete function implementations
+
+**Interpretation**:
+
+This is the **expected limitation** of a 29M parameter model trained on next-token prediction without instruction tuning. The model has learned:
+- ✅ Python syntax patterns
+- ✅ Common code structures
+- ❌ Task-specific problem solving
+
+**To improve** (future work):
+- Instruction tuning on 50-200 task-solution pairs
+- Larger model capacity (50M+ params)
+- Longer context training (512+ tokens)
 
 ---
 

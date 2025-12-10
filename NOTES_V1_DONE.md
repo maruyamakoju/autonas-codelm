@@ -83,4 +83,22 @@ This project successfully demonstrated:
 
 ---
 
-**Final Status**: v1 is complete and closed. Instruction tuning with small data confirmed unfeasible. Next step requires v2 approach.
+---
+
+## Summary: What This Project Achieved
+
+**v1 line (29M, 8K BPE)**: Solved mode collapse through regularization, completed as syntax generator research artifact.
+
+**Instruction tuning experiments**: Exhaustively tested small-scale approaches (v1+IT v2, v3) and confirmed failure. All "cheap levers" (hyperparameters, small data) have been attempted.
+
+**v2 planning**: Designed 4 options for quality scaling. Recommended: LoRA + 500-1000 samples (see `V2_PLAN.md` and `DATA_EXPANSION_GUIDE.md`).
+
+**Next action**:
+- If continuing: Follow v2 Option A (LoRA + HumanEval/MBPP data)
+- If pausing: Project is fully documented, backed up, and ready for archival
+
+**GitHub backup**: Ready to push. Follow `GITHUB_BACKUP_INSTRUCTIONS.md` for 3-step backup process.
+
+---
+
+**Final Status**: v1 complete and closed. Instruction tuning with small data confirmed unfeasible. Next step requires v2 approach or project archival.

@@ -4,6 +4,8 @@
 **Status**: Phase 3 complete - v1 model ready (few-shot collapse 14.5%) ✅
 **Hardware**: RTX 5090 + RTX 4090
 
+> **📌 Project Status**: This repository represents the completion of Phase 3 (v1.0-strongreg). The v1 model successfully addresses mode collapse but has limited task-solving capability (0/20 on mini benchmark). Future work (instruction tuning, v2) should be done in a separate branch or repository.
+
 ---
 
 ## 🎯 Project Overview
@@ -496,3 +498,42 @@ python eval_playground.py \
 - [STRONGREG_SUMMARY.md](STRONGREG_SUMMARY.md) - Phase 3 complete results
 - [TOKEN_LEVEL_SUMMARY.md](TOKEN_LEVEL_SUMMARY.md) - Token-level modeling analysis
 - [COMPLETION_SUMMARY.md](COMPLETION_SUMMARY.md) - Char-level Phase 1 analysis
+
+---
+
+## 💾 Backup & Archival
+
+**⚠️ IMPORTANT**: This project is complete at v1.0. Back up to a remote repository before making any changes.
+
+### Create Remote Backup
+
+```bash
+# 1. Create a repository on GitHub/GitLab/Bitbucket
+# 2. Add remote and push
+git remote add origin <your-remote-url>
+git push -u origin master
+git push origin v1.0-strongreg
+
+# Verify
+git remote -v
+```
+
+### Future Work
+
+If you want to continue this project:
+
+1. **Instruction Tuning (Recommended first step)**:
+   - Create 10-50 task-solution pairs
+   - Fine-tune v1 checkpoint for 1k-5k steps
+   - Test if 0/20 → 3-5/20 on mini benchmark
+   - See `NOTES_V1_DONE.md` for detailed recommendations
+
+2. **v2 Model (Larger effort)**:
+   - Create a new branch: `git checkout -b v2-instruction-tuning`
+   - Increase model capacity (50M+ params)
+   - Train with longer context (512+ tokens)
+   - Full instruction tuning dataset
+
+3. **Alternative Path**:
+   - Use v1 as a research baseline
+   - Start a new project with different architecture/approach
